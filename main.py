@@ -157,7 +157,7 @@ def render(url):
 
 
 if len(sys.argv) == 1:
-    url = input("Enter hostname / URL: ")
+    url = input("(URL): ")
 else:
     url = sys.argv[1]
 
@@ -166,7 +166,7 @@ while True:
         state["render_body"] = []
         state["current_links"] = []
         render(url)
-    url = input()
+    url = input("(URL/Num: ")
     try:
         link = state["current_links"][int(url)]
         url = link["url"]
