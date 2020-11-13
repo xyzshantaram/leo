@@ -2,6 +2,7 @@ import socket
 import ssl
 import sys
 import re
+import os
 
 # TODO add text formatting based on terminal width
 # TODO add 1x response
@@ -63,28 +64,31 @@ state["context"].check_hostname = False
 state["context"].verify_mode = ssl.CERT_NONE
 
 def validate_url(url):
+    rval = None
     if (re.match(r"(((http([s])?:\/\/)|(gemini:\/\/)|(gopher:\/\/))?[a-zA-Z0-9\-]+\.[a-zA-Z0-9])?\/?[^\/\t\n\ \r]+(\/?[^\/\/\n\ \r\t]+)*\/?", url)):
         if ("gemini://" not in url):
             if (url.startswith("http") or url.startswith("https")):
                 log_debug("HTTP(s) is unsupported.")
-                return state["current_url"]
+                rval = state["current_url"]
             if (re.match(r"[a-zA-Z0-9\-]+\.[a-zA-Z].*", url) and not url.endswith(".gmi")):
-                return "gemini://" + url + "/"
+                rval = "gemini://" + url + "/"
             else:
                 if (url[0].isalnum()):
                     url = state["current_url"] + "/" + url
-                    """if not url.endswith("/"):
-                        url += "/" """
-                    return url
+                    if not url.endswith("/"):
+                        url += "/"
+                    rval = url
                 elif url.startswith("/"):
                     url = validate_url(state["current_hname"] + "/" + url)
+                    rval = url
         else:
-            return url
+            rval = url
     else:
         if (url == "/"):
             return validate_url(state["current_hname"])
-        return None
-
+        rval = None
+    p, *u = rval.split("://")
+    return p + "://" + "".join(u).replace("//", "/")
 
 def get_hostname(url):
     ret = re.findall(
@@ -136,7 +140,7 @@ def get_document_ez(url):
     return resp
 
 def get_link_from_line(line):
-    link_parts = line.split()
+    link_parts = line.strip().split()
     link_parts = link_parts[1:]
     if (link_parts[0]):
         if (len(link_parts) == 1):
@@ -151,13 +155,38 @@ def get_link_from_line(line):
                 + " ".join(link_parts[1:])
         }
 
+def slice_line(line, length):
+    return [line[i:i + length] for i in range(0, len(line), length)]
+
+def fmt(line, width):
+    final = []
+    copy = line
+    words = []
+    length = 0
+    copy = copy.split(' ')
+    for i in copy:
+        hl_len = 0
+        for j in hlt:
+            if hlt[j] in i:
+                hl_len += len(hlt[j])
+        length -= hl_len
+        if length + len(i) + 1 <= width + hl_len:
+            words.append(i)
+            length += len(i) + 1
+        else:
+            final.append(" ".join(words))
+            words = [i]
+            length = len(i)
+    final.append(" ".join(words))
+    print("\n".join(final))
+
 def render(file):
+    cols, rows = os.get_terminal_size()
     in_pf_block = False
     for i in range(len(file)):
         line = file[i]
         if (line.startswith("```")):
             line = hlt["italic"] + hlt["unfocus_color"] + line[3:] + hlt["reset"]
-            """ line = line[:3] """
             in_pf_block = not in_pf_block
         if line.startswith("#"):
             if not in_pf_block:
@@ -167,11 +196,17 @@ def render(file):
                 link = get_link_from_line(line)
                 state["current_links"].append(link)
                 line = link["render_line"]
+        if in_pf_block:
+            line = line[:cols]
                 
         state["render_body"].append(line.replace("\\n", "\n"))
     for i in state["render_body"]:
-        print(i)
-
+        if (i.startswith("```")):
+            in_pf_block = not in_pf_block
+        if not in_pf_block:
+            fmt(i, cols)
+        else:
+            print(slice_line(i, cols)[0])
 
 if len(sys.argv) == 1:
     url = input("(URL): ")
@@ -208,4 +243,3 @@ while True:
             pass
     else:
         exit(0)
-
