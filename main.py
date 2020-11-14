@@ -3,13 +3,16 @@ import ssl
 import sys
 import re
 import os
+import getpass
 
-# TODO add text formatting based on terminal width
 # TODO add 1x response
 # TODO handle other status codes
 # TODO error handling
 # TODO split into files
 # TODO curses?
+
+global GEMINI_PORT
+GEMINI_PORT = 1965
 
 state = {
     "current_hname": "",
@@ -22,6 +25,9 @@ state = {
     "render_body": [],
     "current_links": []
 }
+
+state["context"].check_hostname = False
+state["context"].verify_mode = ssl.CERT_NONE
 
 hlt = {
     "bold": "\033[1m",
@@ -56,12 +62,6 @@ def log_error(*argv):
 def log_debug(*argv):
     if (state["debug_logger"]):
         state["debug_logger"](*argv)
-
-global GEMINI_PORT
-GEMINI_PORT = 1965
-
-state["context"].check_hostname = False
-state["context"].verify_mode = ssl.CERT_NONE
 
 def validate_url(url):
     rval = None
@@ -206,7 +206,17 @@ def render(file):
         if not in_pf_block:
             fmt(i, cols)
         else:
-            print(slice_line(i, cols)[0])
+            if not (i.startswith("```")):
+                print(slice_line(i, cols)[0])
+
+def get_input(prompt, meta):
+    sensitive = True if meta[1] == "1" else False
+    if sensitive:
+        inp = getpass.getpass(prompt + "> ")
+    else:
+        print(prompt, end='> ')
+        inp = input()
+    return inp
 
 if len(sys.argv) == 1:
     url = input("(URL): ")
@@ -221,7 +231,6 @@ while True:
 
         status = resp["status"]
         meta = resp["meta"]
-        body = resp["body"]
 
         if (status.startswith("3")):
             log_info("redirected to", meta)
@@ -229,8 +238,14 @@ while True:
             continue
         
         elif (status.startswith("5") or status.startswith("4")):
-            log_error("Server returned code 41/51, metadata:", meta)
-        render(body)
+            log_error("Server returned code 4x/5x, metadata:", meta)
+
+        elif (status.startswith("1")):
+            log_info("Server at", state["current_hname"], "requested input")
+            resp = get_document_ez(url + "?" + get_input(status, meta))
+        
+        render(resp["body"])
+
         try:
             url = input("(URL/Num): ")
         except KeyboardInterrupt:
