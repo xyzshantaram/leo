@@ -26,9 +26,6 @@ state = {
     "current_links": []
 }
 
-state["context"].check_hostname = False
-state["context"].verify_mode = ssl.CERT_NONE
-
 hlt = {
     "bold": "\033[1m",
     "underline": "\033[4m",
@@ -70,7 +67,7 @@ def validate_url(url):
             if (url.startswith("http") or url.startswith("https")):
                 log_debug("HTTP(s) is unsupported.")
                 rval = state["current_url"]
-            if (re.match(r"[a-zA-Z0-9\-]+\.[a-zA-Z].*", url) and not url.endswith(".gmi")):
+            if (re.match(r"[a-zA-Z0-9\-]+\.[a-zA-Z].*", url) and not url.endswith(".gmi") and "http://" not in url):
                 rval = "gemini://" + url + "/"
             else:
                 if (url[0].isalnum()):
@@ -223,38 +220,50 @@ if len(sys.argv) == 1:
 else:
     url = sys.argv[1]
 
-while True:
-    if (url not in ["exit", "quit", "q", "e"]):
-        state["render_body"] = []
-        state["current_links"] = []
-        resp = get_document_ez(url)
+if len(sys.argv) > 1:
+    if ("-cert" in sys.argv):
+        if (sys.argv[sys.argv.index("-cert") + 1]):
+            state["context"] = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            state["context"].load_verify_locations(sys.argv[sys.argv.index("-cert") + 1])
 
-        status = resp["status"]
-        meta = resp["meta"]
+state["context"].check_hostname = False
+state["context"].verify_mode = ssl.CERT_NONE
 
-        if (status.startswith("3")):
-            log_info("redirected to", meta)
-            url = meta
-            continue
-        
-        elif (status.startswith("5") or status.startswith("4")):
-            log_error("Server returned code 4x/5x, metadata:", meta)
+if __name__ == "__main__":
+    while True:
+        if (url not in ["exit", "quit", "q", "e"]):
+            state["render_body"] = []
+            state["current_links"] = []
+            resp = get_document_ez(url)
 
-        elif (status.startswith("1")):
-            log_info("Server at", state["current_hname"], "requested input")
-            resp = get_document_ez(url + "?" + get_input(status, meta))
-        
-        render(resp["body"])
+            status = resp["status"]
+            meta = resp["meta"]
 
-        try:
-            url = input("(URL/Num): ")
-        except KeyboardInterrupt:
-            log_info("\nexiting...")
+            if (status.startswith("3")):
+                log_info("redirected to", meta)
+                url = meta
+                continue
+            
+            elif (status.startswith("5") or status.startswith("4")):
+                log_error("Server returned code 4x/5x, info:", meta)
+
+            elif (status.startswith("1")):
+                log_info("Server at", state["current_hname"], "requested input")
+                resp = get_document_ez(url + "?" + get_input(status, meta))
+            
+            render(resp["body"])
+
+            try:
+                url = input("(URL/Num): ")
+            except KeyboardInterrupt:
+                log_info("\nexiting...")
+                exit(0)
+            try:
+                link = state["current_links"][int(url)]
+                url = link["url"]
+            except ValueError:
+                pass
+            except IndexError:
+                log_error("invalid link number specified")
+        else:
             exit(0)
-        try:
-            link = state["current_links"][int(url)]
-            url = link["url"]
-        except ValueError:
-            pass
-    else:
-        exit(0)
