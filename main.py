@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import socket
 import ssl
 import sys
@@ -13,6 +15,12 @@ import getpass
 
 global GEMINI_PORT
 GEMINI_PORT = 1965
+
+global WRAP_TEXT
+WRAP_TEXT = True
+
+global WRAP_WIDTH
+WRAP_WIDTH = 100
 
 state = {
     "current_hname": "",
@@ -35,7 +43,8 @@ hlt = {
     "link_color": "\033[38;5;13m",
     "reset": "\033[0m",
     "italic": "\033[3m",
-    "unfocus_color": "\033[38;5;8m"
+    "unfocus_color": "\033[38;5;8m",
+    "set_title": "\033]0;%s\a"
 }
 
 def log(*argv):
@@ -60,6 +69,9 @@ def log_debug(*argv):
     if (state["debug_logger"]):
         state["debug_logger"](*argv)
 
+def set_term_title(s):
+    print(hlt["set_title"]%s, end='')
+
 def validate_url(url):
     rval = None
     if (re.match(r"(((http([s])?:\/\/)|(gemini:\/\/)|(gopher:\/\/))?[a-zA-Z0-9\-]+\.[a-zA-Z0-9])?\/?[^\/\t\n\ \r]+(\/?[^\/\/\n\ \r\t]+)*\/?", url)):
@@ -76,7 +88,7 @@ def validate_url(url):
                         url += "/"
                     rval = url
                 elif url.startswith("/"):
-                    url = validate_url(state["current_hname"] + "/" + url)
+                    url = validate_url(state["current_hname"] + url)
                     rval = url
         else:
             rval = url
@@ -111,6 +123,7 @@ def gemini_get_document(url, port = GEMINI_PORT):
     )
     log_info("Connected to", hostname, "over", state["ssock"].version())
     state["current_hname"] = hostname
+    set_term_title(state["current_hname"])
 
     state["ssock"].sendall(get_encoded(url))
 
@@ -179,6 +192,7 @@ def fmt(line, width):
 
 def render(file):
     cols, rows = os.get_terminal_size()
+    state["render_body"] = []
     in_pf_block = False
     for i in range(len(file)):
         line = file[i]
@@ -197,6 +211,8 @@ def render(file):
             line = line[:cols]
                 
         state["render_body"].append(line.replace("\\n", "\n"))
+    if (WRAP_TEXT and WRAP_WIDTH and type(WRAP_WIDTH) == int):
+        cols = min(cols, WRAP_WIDTH)
     for i in state["render_body"]:
         if (i.startswith("```")):
             in_pf_block = not in_pf_block
@@ -232,7 +248,6 @@ state["context"].verify_mode = ssl.CERT_NONE
 if __name__ == "__main__":
     while True:
         if (url not in ["exit", "quit", "q", "e"]):
-            state["render_body"] = []
             state["current_links"] = []
             resp = get_document_ez(url)
 
