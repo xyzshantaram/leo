@@ -69,12 +69,13 @@ def log_debug(*argv):
 def set_term_title(s):
     print(hlt["set_title"]%s, end='')
 
-def validate_url(url):
+def validate_url(url, echo = False):
     rval = None
     if (re.match(r"(((http([s])?:\/\/)|(gemini:\/\/)|(gopher:\/\/))?[a-zA-Z0-9\-]+\.[a-zA-Z0-9])?\/?[^\/\t\n\ \r]+(\/?[^\/\/\n\ \r\t]+)*\/?", url)):
         if ("gemini://" not in url):
             if (url.startswith("http") or url.startswith("https")):
-                log_error("HTTP(s) is unsupported.")
+                if echo:
+                    log_error("HTTP(s) is unsupported.")
                 rval = state["current_url"]
             elif (re.match(r"[a-zA-Z0-9\-]+\.[a-zA-Z].*", url) and not url.endswith(".gmi")):
                 rval = "gemini://" + url + "/"
@@ -243,9 +244,11 @@ if len(sys.argv) > 1:
 state["context"].check_hostname = False
 state["context"].verify_mode = ssl.CERT_NONE
 
+command_list = ["exit", "quit", "back", "forward"]
+
 if __name__ == "__main__":
     while True:
-        if (url not in ["exit", "quit", "q", "e"]):
+        if (url not in command_list):
             state["current_links"] = []
             resp = get_document_ez(url)
 
@@ -286,6 +289,9 @@ if __name__ == "__main__":
             except IndexError:
                 log_error("invalid link number specified")
                 url = old_url
-
+        elif url == "back":
+            log_info("Not implemented yet")
+        elif url == "fwd" or url == "forward":
+            log_info("Not implemented yet")
         else:
             exit(0)
