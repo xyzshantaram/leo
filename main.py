@@ -74,15 +74,15 @@ def validate_url(url):
     if (re.match(r"(((http([s])?:\/\/)|(gemini:\/\/)|(gopher:\/\/))?[a-zA-Z0-9\-]+\.[a-zA-Z0-9])?\/?[^\/\t\n\ \r]+(\/?[^\/\/\n\ \r\t]+)*\/?", url)):
         if ("gemini://" not in url):
             if (url.startswith("http") or url.startswith("https")):
-                log_debug("HTTP(s) is unsupported.")
+                log_error("HTTP(s) is unsupported.")
                 rval = state["current_url"]
-            if (re.match(r"[a-zA-Z0-9\-]+\.[a-zA-Z].*", url) and not url.endswith(".gmi") and "http://" not in url):
+            elif (re.match(r"[a-zA-Z0-9\-]+\.[a-zA-Z].*", url) and not url.endswith(".gmi")):
                 rval = "gemini://" + url + "/"
             else:
                 if (url[0].isalnum()):
                     url = state["current_url"] + "/" + url
-                    if not url.endswith("/"):
-                        url += "/"
+                    """ if not url.endswith("/"):
+                        url += "/" """
                     rval = url
                 elif url.startswith("/"):
                     url = validate_url(state["current_hname"] + url)
@@ -211,13 +211,14 @@ def render(file):
     if (WRAP_TEXT and WRAP_WIDTH and type(WRAP_WIDTH) == int):
         cols = min(cols, WRAP_WIDTH)
     for i in state["render_body"]:
-        if (i.startswith("```")):
+        if in_pf_block:
             in_pf_block = not in_pf_block
-        if not in_pf_block:
-            fmt(i, cols)
-        else:
-            if not (i.startswith("```")):
+            if i.startswith("```"):
+                fmt(i, cols)
+            else:
                 print(slice_line(i, cols)[0])
+        elif not in_pf_block:
+            fmt(i, cols)
 
 def get_input(prompt, meta):
     sensitive = True if meta[1] == "1" else False
@@ -270,6 +271,8 @@ if __name__ == "__main__":
             else:
                 render(resp["body"])
 
+            old_url = url
+
             try:
                 url = input("(URL/Num): ")
             except KeyboardInterrupt:
@@ -282,5 +285,7 @@ if __name__ == "__main__":
                 pass
             except IndexError:
                 log_error("invalid link number specified")
+                url = old_url
+
         else:
             exit(0)
