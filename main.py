@@ -7,11 +7,8 @@ import re
 import os
 import getpass
 
-# TODO add 1x response
-# TODO handle other status codes
 # TODO error handling
 # TODO split into files
-# TODO curses?
 
 global GEMINI_PORT
 GEMINI_PORT = 1965
@@ -266,7 +263,12 @@ if __name__ == "__main__":
                 log_info("Server at", state["current_hname"], "requested input")
                 resp = get_document_ez(url + "?" + get_input(status, meta))
             
-            render(resp["body"])
+            elif (status.startswith("6")):
+                log_error("Server requires you to be authenticated.\n\
+                    Please start leo with the -cert option with the path to a valid SSL cert passed in as an argument.")
+
+            else:
+                render(resp["body"])
 
             try:
                 url = input("(URL/Num): ")
