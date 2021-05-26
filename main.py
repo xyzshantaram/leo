@@ -14,10 +14,27 @@ global GEMINI_PORT
 GEMINI_PORT = 1965
 
 global WRAP_TEXT
-WRAP_TEXT = True
+WRAP_TEXT = False
 
-global WRAP_WIDTH
-WRAP_WIDTH = 100
+global WRAP_MARGIN
+WRAP_MARGIN = 3
+
+global PROMPT_MSG
+PROMPT_MSG = "<Press Enter to continue>"
+
+def getch():
+    import termios
+    import sys, tty
+    def _getch():
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+    return _getch()
 
 state = {
     "current_hname": "",
@@ -43,6 +60,8 @@ hlt = {
     "unfocus_color": "\033[38;5;8m",
     "set_title": "\033]0;%s\a"
 }
+
+hlt_vals = list(hlt.values())
 
 def log(*argv):
     log_debug(*argv)
@@ -80,12 +99,7 @@ def validate_url(url, echo = False):
             elif (re.match(r"[a-zA-Z0-9\-]+\.[a-zA-Z].*", url) and not url.endswith(".gmi")):
                 rval = "gemini://" + url + "/"
             else:
-                if (url[0].isalnum()):
-                    url = state["current_url"] + "/" + url
-                    """ if not url.endswith("/"):
-                        url += "/" """
-                    rval = url
-                elif url.startswith("/"):
+                if url.startswith("/"):
                     url = validate_url(state["current_hname"] + url)
                     rval = url
         else:
@@ -93,9 +107,11 @@ def validate_url(url, echo = False):
     else:
         if (url == "/"):
             return validate_url(state["current_hname"])
-        rval = None
-    p, *u = rval.split("://")
-    return p + "://" + "".join(u).replace("//", "/")
+    if (rval):
+        p, *u = rval.split("://")
+        return p + "://" + "".join(u).replace("//", "/")
+    else:
+        return None
 
 def get_hostname(url):
     ret = re.findall(
@@ -110,7 +126,6 @@ def get_encoded(s):
     return ((s + "\r\n").encode("UTF-8"))
 
 def gemini_get_document(url, port = GEMINI_PORT):
-    url = validate_url(url)
     state["current_url"] = url
     log_info("attempting to get", url)
 
@@ -141,8 +156,8 @@ def gemini_get_document(url, port = GEMINI_PORT):
         "body": response_body
     }
 
-def get_document_ez(url, port = GEMINI_PORT):
-    resp = gemini_get_document(url, port)
+def get_document_ez(url):
+    resp = gemini_get_document(url, GEMINI_PORT)
     log_info("GET", url, "returned code", resp["status"])
     log_info("MIME type of body was", resp["meta"]) if resp["status"] == "20" else ""
     return resp
@@ -164,7 +179,8 @@ def get_link_from_line(line):
         }
 
 def slice_line(line, length):
-    return [line[i:i + length] for i in range(0, len(line), length)]
+    sliced = [line[i:i + length] for i in range(0, len(line), length)]
+    return sliced
 
 def fmt(line, width):
     final = []
@@ -192,10 +208,10 @@ def render(file):
     cols, rows = os.get_terminal_size()
     state["render_body"] = []
     in_pf_block = False
-    for i in range(len(file)):
-        line = file[i]
+    for line in file:
         if (line.startswith("```")):
-            line = hlt["italic"] + hlt["unfocus_color"] + line[3:] + hlt["reset"]
+            line = line.strip()
+            line = hlt["italic"] + hlt["unfocus_color"] + line + hlt["reset"]
             in_pf_block = not in_pf_block
         if line.startswith("#"):
             if not in_pf_block:
@@ -205,26 +221,37 @@ def render(file):
                 link = get_link_from_line(line)
                 state["current_links"].append(link)
                 line = link["render_line"]
-        if in_pf_block:
-            line = line[:cols]
-                
         state["render_body"].append(line.replace("\\n", "\n"))
-    if (WRAP_TEXT and WRAP_WIDTH and type(WRAP_WIDTH) == int):
-        cols = min(cols, WRAP_WIDTH)
+
+    if (WRAP_TEXT and WRAP_MARGIN and type(WRAP_MARGIN) == int):
+        cols -= WRAP_MARGIN
     
+    in_pf_block = False
     screenfuls = slice_line(state["render_body"], rows - 1)
-    print(screenfuls)
-    for screenful in screenfuls:
-        for i in screenful:
-            if in_pf_block:
+    for count, screenful in enumerate(screenfuls):
+        for line in screenful:
+            is_toggle_line = lambda _line: _line.startswith(hlt["italic"] + hlt["unfocus_color"] + "```") or _line.startswith("```")
+            if is_toggle_line(line):
                 in_pf_block = not in_pf_block
-                if i.startswith("```"):
-                    fmt(i, cols)
+                if in_pf_block:
+                    fmt(line.replace("```", ""), cols)
+                    print(hlt["reset"])
                 else:
-                    print(slice_line(i, cols)[0])
-            elif not in_pf_block:
-                fmt(i, cols)
-        input("<Press Enter to continue>")
+                    continue
+            if in_pf_block:
+                if not is_toggle_line(line):
+                    if (len(line) > cols):
+                        sliced = slice_line(line, cols - 1)
+                        print(sliced[0] + hlt["error_color"] + hlt["bold"] + ">" + hlt["reset"])
+            else:
+                fmt(line, cols)
+        if (count + 1 == len(screenfuls)):
+            continue
+        else:
+            ch = getch()
+            if (ch == 'q' or ord(ch) == 4):
+                break
+            # print("\033[1A\r" + (" "*cols) + "\r", end='')
 
 def get_input(prompt, meta):
     sensitive = True if meta[1] == "1" else False
@@ -236,7 +263,10 @@ def get_input(prompt, meta):
     return inp
 
 if len(sys.argv) == 1:
-    url = input("(URL): ")
+    try:
+        url = input("(URL): ")
+    except (KeyboardInterrupt, EOFError):
+        quit()
 else:
     url = sys.argv[1]
 
@@ -249,46 +279,63 @@ if len(sys.argv) > 1:
 state["context"].check_hostname = False
 state["context"].verify_mode = ssl.CERT_NONE
 
-command_list = ["exit", "quit", "back", "forward"]
+command_list = ["exit", "quit", "back", "forward", "reload"]
+
+def quit():
+    log_info("\nexiting...")
+    exit(0)
+
+def reload():
+    get_and_display(state["current_url"])
+
+def get_and_display(url):
+    url = validate_url(url)
+    if not url:
+        log_error("Invalid URL specified.")
+        return
+    state["current_links"] = []
+    resp = get_document_ez(url)
+
+    status = resp["status"]
+    meta = resp["meta"]
+
+    if (status.startswith("3")):
+        log_info("redirected to", meta)
+        url = meta
+        get_and_display(meta)
+    
+    elif (status.startswith("5") or status.startswith("4")):
+        log_error("Server returned code 4x/5x, info:", meta)
+
+    elif (status.startswith("1")):
+        log_info("Server at", state["current_hname"], "requested input")
+        resp = get_document_ez(url + "?" + get_input(status, meta))
+    
+    elif (status.startswith("6")):
+        log_error("Server requires you to be authenticated.\n\
+            Please start leo with the -cert option with the path to a valid SSL cert passed in as an argument.")
+
+    else:
+        render(resp["body"])
+
+
+command_impls = {
+    "exit": quit,
+    "quit": quit,
+    "reload": reload,
+}
 
 if __name__ == "__main__":
     while True:
-        if (url not in command_list):
-            state["current_links"] = []
-            port = 1965
-            if (":" in url):
-                port = int(re.sub(r"\D", "", url.split(":")[1]))
-            resp = get_document_ez(url)
-
-            status = resp["status"]
-            meta = resp["meta"]
-
-            if (status.startswith("3")):
-                log_info("redirected to", meta)
-                url = meta
-                continue
-            
-            elif (status.startswith("5") or status.startswith("4")):
-                log_error("Server returned code 4x/5x, info:", meta)
-
-            elif (status.startswith("1")):
-                log_info("Server at", state["current_hname"], "requested input")
-                resp = get_document_ez(url + "?" + get_input(status, meta))
-            
-            elif (status.startswith("6")):
-                log_error("Server requires you to be authenticated.\n\
-                    Please start leo with the -cert option with the path to a valid SSL cert passed in as an argument.")
-
-            else:
-                render(resp["body"])
-
+        split = url.split(" ")
+        if (split[0] not in command_list):
+            get_and_display(url)
             old_url = url
 
             try:
                 url = input("(URL/Num): ")
-            except KeyboardInterrupt:
-                log_info("\nexiting...")
-                exit(0)
+            except (KeyboardInterrupt, EOFError):
+                quit()
             try:
                 link = state["current_links"][int(url)]
                 url = link["url"]
@@ -297,9 +344,5 @@ if __name__ == "__main__":
             except IndexError:
                 log_error("invalid link number specified")
                 url = old_url
-        elif url == "back":
-            log_info("Not implemented yet")
-        elif url == "fwd" or url == "forward":
-            log_info("Not implemented yet")
         else:
-            exit(0)
+            command_impls[url]()
