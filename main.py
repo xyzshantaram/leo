@@ -141,8 +141,8 @@ def gemini_get_document(url, port = GEMINI_PORT):
         "body": response_body
     }
 
-def get_document_ez(url):
-    resp = gemini_get_document(url, GEMINI_PORT)
+def get_document_ez(url, port = GEMINI_PORT):
+    resp = gemini_get_document(url, port)
     log_info("GET", url, "returned code", resp["status"])
     log_info("MIME type of body was", resp["meta"]) if resp["status"] == "20" else ""
     return resp
@@ -211,15 +211,20 @@ def render(file):
         state["render_body"].append(line.replace("\\n", "\n"))
     if (WRAP_TEXT and WRAP_WIDTH and type(WRAP_WIDTH) == int):
         cols = min(cols, WRAP_WIDTH)
-    for i in state["render_body"]:
-        if in_pf_block:
-            in_pf_block = not in_pf_block
-            if i.startswith("```"):
+    
+    screenfuls = slice_line(state["render_body"], rows - 1)
+    print(screenfuls)
+    for screenful in screenfuls:
+        for i in screenful:
+            if in_pf_block:
+                in_pf_block = not in_pf_block
+                if i.startswith("```"):
+                    fmt(i, cols)
+                else:
+                    print(slice_line(i, cols)[0])
+            elif not in_pf_block:
                 fmt(i, cols)
-            else:
-                print(slice_line(i, cols)[0])
-        elif not in_pf_block:
-            fmt(i, cols)
+        input("<Press Enter to continue>")
 
 def get_input(prompt, meta):
     sensitive = True if meta[1] == "1" else False
@@ -250,6 +255,9 @@ if __name__ == "__main__":
     while True:
         if (url not in command_list):
             state["current_links"] = []
+            port = 1965
+            if (":" in url):
+                port = int(re.sub(r"\D", "", url.split(":")[1]))
             resp = get_document_ez(url)
 
             status = resp["status"]
