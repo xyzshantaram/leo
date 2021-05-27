@@ -204,6 +204,7 @@ def slice_line(line, length):
 
 def fmt(line, width):
     if (line.strip() == ""):
+        print()
         return
     final = []
     copy = line
@@ -211,7 +212,7 @@ def fmt(line, width):
     length = 0
     copy = copy.split(' ')
     if (copy[0] == line):
-        copy = copy.split('-')
+        copy = line.split('-')
     for i in copy:
         hl_len = 0
         for j in hlt:
