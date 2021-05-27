@@ -6,6 +6,7 @@ import sys
 import re
 import os
 import getpass
+import urllib.parse
 
 # TODO error handling
 # TODO split into files
@@ -21,6 +22,9 @@ WRAP_MARGIN = 3
 
 global PROMPT_MSG
 PROMPT_MSG = "<Press Enter to continue>"
+
+global REDIRECT_LOOP_THRESHOLD
+REDIRECT_LOOP_THRESHOLD = 5
 
 def getch():
     import termios
@@ -45,7 +49,10 @@ state = {
     "logger": print,
     "debug_logger": None,
     "render_body": [],
-    "current_links": []
+    "current_links": [],
+    "last_load_was_redirect": False,
+    "redirect_count": 0,
+    "inp_buffer": ""
 }
 
 hlt = {
@@ -88,38 +95,34 @@ def log_debug(*argv):
 def set_term_title(s):
     print(hlt["set_title"]%s, end='')
 
-def validate_url(url, echo = False):
-    rval = None
-    if (re.match(r"(((http([s])?:\/\/)|(gemini:\/\/)|(gopher:\/\/))?[a-zA-Z0-9\-]+\.[a-zA-Z0-9])?\/?[^\/\t\n\ \r]+(\/?[^\/\/\n\ \r\t]+)*\/?", url)):
-        if ("gemini://" not in url):
-            if (url.startswith("http") or url.startswith("https")):
-                if echo:
-                    log_error("HTTP(s) is unsupported.")
-                rval = state["current_url"]
-            elif (re.match(r"[a-zA-Z0-9\-]+\.[a-zA-Z].*", url) and not url.endswith(".gmi")):
-                rval = "gemini://" + url + "/"
-            else:
-                if url.startswith("/"):
-                    url = validate_url(state["current_hname"] + url)
-                    rval = url
+def validate_url(url):
+    if "://" not in url:
+        if re.match(r"([^\W_]+)(\.([^\W_]+))+", url):
+            return {
+                "final": "gemini://" + url,
+                "scheme": "gemini"
+
+            }
+        base = state["current_hname"]
+        if "gemini://" not in base:
+            base = "https://" + base
+        if base == "":
+            raise ValueError("Relative URL parsed with no valid hostname")
+        if (url.startswith("/")):
+            url = urllib.parse.urljoin(base, url).replace("https", "gemini")
         else:
-            rval = url
-    else:
-        if (url == "/"):
-            return validate_url(state["current_hname"])
-    if (rval):
-        p, *u = rval.split("://")
-        return p + "://" + "".join(u).replace("//", "/")
-    else:
-        return None
+            current_copy = state["current_url"].replace("gemini", "https")
+            url = urllib.parse.urljoin(current_copy, url)
+            url = url.replace("https", "gemini")
+    parsed_url = urllib.parse.urlparse(url)
+    return {
+        "final": parsed_url.geturl(),
+        "scheme": parsed_url.scheme
+    }
 
 def get_hostname(url):
-    ret = re.findall(
-        r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]", url)[0]
-    if not (ret.endswith("/")):
-        return ret
-    else:
-        return ret[:len(ret) - 1]
+    ret = urllib.parse.urlparse(url).netloc
+    return ret
 
 
 def get_encoded(s):
@@ -145,10 +148,15 @@ def gemini_get_document(url, port = GEMINI_PORT):
     header = header.decode("UTF-8").strip().split()
     log_info(header)
     status = header[0]
+    charset = "UTF-8"
+    for item in header:
+        if item.lower().startswith("charset="):
+            charset = item.split("=", maxsplit=1)[1].replace(";", "")
     meta = " ".join(header[1:])
     response_body = fp.read()
     if (response_body):
-        response_body = response_body.decode("UTF-8").split("\n")
+        response_body = response_body.decode(charset)
+        response_body = response_body.split("\n")
     fp.close()
     return {
         "status": status,
@@ -158,36 +166,52 @@ def gemini_get_document(url, port = GEMINI_PORT):
 
 def get_document_ez(url):
     resp = gemini_get_document(url, GEMINI_PORT)
-    log_info("GET", url, "returned code", resp["status"])
-    log_info("MIME type of body was", resp["meta"]) if resp["status"] == "20" else ""
+    """ log_info("GET", url, "returned code", resp["status"])
+    log_info("MIME type of body was", resp["meta"]) if resp["status"] == "20" else "" """
     return resp
 
 def get_link_from_line(line):
-    link_parts = line.strip().split()
-    link_parts = link_parts[1:]
+    link_parts = line.strip().split(maxsplit=2)
+    link_parts = link_parts[1:] # remove =>
+    if (len(link_parts) < 1):
+        return {
+            "url": state["current_url"],
+            "text": "INVALID LINK",
+            "render_line": "%s%s[%s]%s" % (hlt["error_color"], hlt["bold"], "INVALID LINK", hlt["reset"]),
+        }
     if (link_parts[0]):
         if (len(link_parts) == 1):
             link_parts.append(link_parts[0])
-        return {
-            "url": validate_url(link_parts[0]),
-            "text": " ".join(link_parts[1:]),
-            "render_line": hlt["bold"] # print links in bold, underlined, 
-                + hlt["underline"] + hlt["link_color"]
-                + str(len(state["current_links"]))
-                + hlt["reset"] + " "
-                + " ".join(link_parts[1:])
-        }
+    _text = "".join(link_parts[1:])
+    text = " "
+    validated = validate_url(link_parts[0])
+    if (validated["scheme"] != "gemini"):
+        text = "%s%s[%s]%s %s" % (hlt["error_color"], hlt["bold"], validated["scheme"], hlt["reset"], _text)
+    return {
+        "url": validated["final"],
+        "text": _text,
+         # print links in bold, underlined.
+        "render_line": hlt["bold"]
+            + hlt["underline"] + hlt["link_color"]
+            + str(len(state["current_links"]))
+            + hlt["reset"] + text + " "
+            + _text
+    }
 
 def slice_line(line, length):
     sliced = [line[i:i + length] for i in range(0, len(line), length)]
     return sliced
 
 def fmt(line, width):
+    if (line.strip() == ""):
+        return
     final = []
     copy = line
     words = []
     length = 0
     copy = copy.split(' ')
+    if (copy[0] == line):
+        copy = copy.split('-')
     for i in copy:
         hl_len = 0
         for j in hlt:
@@ -235,14 +259,17 @@ def render(file):
                 in_pf_block = not in_pf_block
                 if in_pf_block:
                     fmt(line.replace("```", ""), cols)
-                    print(hlt["reset"])
+                    print(hlt["reset"], end='')
                 else:
+                    print()
                     continue
             if in_pf_block:
                 if not is_toggle_line(line):
                     if (len(line) > cols):
                         sliced = slice_line(line, cols - 1)
                         print(sliced[0] + hlt["error_color"] + hlt["bold"] + ">" + hlt["reset"])
+                    else:
+                        print(line)
             else:
                 fmt(line, cols)
         if (count + 1 == len(screenfuls)):
@@ -253,28 +280,15 @@ def render(file):
                 break
             # print("\033[1A\r" + (" "*cols) + "\r", end='')
 
-def get_input(prompt, meta):
-    sensitive = True if meta[1] == "1" else False
+def get_input(status, meta):
+    prompt = meta
+    sensitive = True if status[1] == "1" else False
     if sensitive:
         inp = getpass.getpass(prompt + "> ")
     else:
         print(prompt, end='> ')
         inp = input()
     return inp
-
-if len(sys.argv) == 1:
-    try:
-        url = input("(URL): ")
-    except (KeyboardInterrupt, EOFError):
-        quit()
-else:
-    url = sys.argv[1]
-
-if len(sys.argv) > 1:
-    if ("-cert" in sys.argv):
-        if (sys.argv[sys.argv.index("-cert") + 1]):
-            state["context"] = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            state["context"].load_verify_locations(sys.argv[sys.argv.index("-cert") + 1])
 
 state["context"].check_hostname = False
 state["context"].verify_mode = ssl.CERT_NONE
@@ -289,34 +303,54 @@ def reload():
     get_and_display(state["current_url"])
 
 def get_and_display(url):
-    url = validate_url(url)
-    if not url:
-        log_error("Invalid URL specified.")
-        return
     state["current_links"] = []
     resp = get_document_ez(url)
 
     status = resp["status"]
     meta = resp["meta"]
 
-    if (status.startswith("3")):
-        log_info("redirected to", meta)
-        url = meta
-        get_and_display(meta)
-    
-    elif (status.startswith("5") or status.startswith("4")):
-        log_error("Server returned code 4x/5x, info:", meta)
+    if (len(status) < 2):
+        log_error("Server returned invalid status code.")
+        return
 
-    elif (status.startswith("1")):
+    if (status.startswith("1")):
         log_info("Server at", state["current_hname"], "requested input")
-        resp = get_document_ez(url + "?" + get_input(status, meta))
+        _url = url if url[-1] != '/' else url[:len(url) - 1]
+        result = _url + "?" + get_input(status, meta)
+        get_and_display(result)
+    
+    elif (status.startswith("2")):
+        state["last_load_was_redirect"] = False
+        render(resp["body"])
+
+    elif (status.startswith("3")):
+        log_info("redirected to", meta)
+        if state["redirect_count"] > 5:
+            log_info("Redirect cycle detected.")
+            state["redirect_count"] = 0
+            return
+        url = meta
+        state["redirect_count"] += 1
+        if not state["last_load_was_redirect"]:
+            state["redirect_count"] = 1
+
+        state["last_load_was_redirect"] = True
+        rurl = validate_url(meta)
+        if (rurl["scheme"] != "gemini"):
+            log_info("Site attempted to redirect us to a non-gemini protocol. Stopping.")
+            return
+        else:
+            get_and_display(rurl["final"])
+        
+    elif  status.startswith("4") or status.startswith("5"):
+        log_error("Server returned code 4x/5x, info:", meta)
     
     elif (status.startswith("6")):
         log_error("Server requires you to be authenticated.\n\
             Please start leo with the -cert option with the path to a valid SSL cert passed in as an argument.")
 
     else:
-        render(resp["body"])
+        log_error("Server returned invalid status code.")
 
 
 command_impls = {
@@ -326,23 +360,55 @@ command_impls = {
 }
 
 if __name__ == "__main__":
-    while True:
-        split = url.split(" ")
-        if (split[0] not in command_list):
-            get_and_display(url)
-            old_url = url
+    url = ""
+    old_url = ""
+    if len(sys.argv) == 1:
+        try:
+            url = input("(URL): ")
+        except (KeyboardInterrupt, EOFError):
+            quit()
+    else:
+        url = sys.argv[1]
 
-            try:
-                url = input("(URL/Num): ")
-            except (KeyboardInterrupt, EOFError):
-                quit()
+    if len(sys.argv) > 1:
+        if ("-cert" in sys.argv):
+            if (sys.argv[sys.argv.index("-cert") + 1]):
+                state["context"] = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                state["context"].load_verify_locations(sys.argv[sys.argv.index("-cert") + 1])
+    while True:
+        command = False
+        split = url.split(" ")
+
+        if (split[0] not in command_list) and not re.match(r'\d+', url.strip()):
+            pass
+        elif re.match(r'\d+', url.strip()):
             try:
                 link = state["current_links"][int(url)]
-                url = link["url"]
+                _url = link["url"]
+                if (urllib.parse.urlparse(_url).scheme != "gemini"):
+                    log_info("Gemini does not support that scheme yet.")
+                    url = old_url
+                else:
+                    url = _url
             except ValueError:
                 pass
             except IndexError:
                 log_error("invalid link number specified")
                 url = old_url
+                continue
         else:
+            command = True
             command_impls[url]()
+
+        if url and not command:
+            url = validate_url(url)["final"]
+            if not url:
+                log_error("Invalid URL specified.")
+            else:
+                get_and_display(url.strip())
+
+        try:
+            old_url = url
+            url = input("(URL/Num): ")
+        except (KeyboardInterrupt, EOFError):
+            quit()
