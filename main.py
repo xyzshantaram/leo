@@ -20,9 +20,6 @@ WRAP_TEXT = False
 global WRAP_MARGIN
 WRAP_MARGIN = 3
 
-global PROMPT_MSG
-PROMPT_MSG = "<Press Enter to continue>"
-
 global REDIRECT_LOOP_THRESHOLD
 REDIRECT_LOOP_THRESHOLD = 5
 
@@ -52,7 +49,8 @@ state = {
     "current_links": [],
     "last_load_was_redirect": False,
     "redirect_count": 0,
-    "inp_buffer": ""
+    "history": [],
+    "current_history_idx": 0
 }
 
 hlt = {
@@ -95,9 +93,9 @@ def log_debug(*argv):
 def set_term_title(s):
     print(hlt["set_title"]%s, end='')
 
-def validate_url(url):
+def validate_url(url, internal=False):
     if "://" not in url:
-        if re.match(r"([^\W_]+)(\.([^\W_]+))+", url):
+        if internal and re.match(r"^([^\W_]+)(\.([^\W_]+))+", url):
             return {
                 "final": "gemini://" + url,
                 "scheme": "gemini"
@@ -177,16 +175,16 @@ def get_link_from_line(line):
         return {
             "url": state["current_url"],
             "text": "INVALID LINK",
-            "render_line": "%s%s[%s]%s" % (hlt["error_color"], hlt["bold"], "INVALID LINK", hlt["reset"]),
+            "render_line": "%s%s [%s]%s" % (hlt["error_color"], hlt["bold"], "INVALID LINK", hlt["reset"]),
         }
     if (link_parts[0]):
         if (len(link_parts) == 1):
             link_parts.append(link_parts[0])
     _text = "".join(link_parts[1:])
-    text = " "
+    scheme = ""
     validated = validate_url(link_parts[0])
     if (validated["scheme"] != "gemini"):
-        text = "%s%s[%s]%s %s" % (hlt["error_color"], hlt["bold"], validated["scheme"], hlt["reset"], _text)
+        scheme = "%s%s [%s] %s %s " % (hlt["error_color"], hlt["bold"], validated["scheme"], hlt["reset"], _text)
     return {
         "url": validated["final"],
         "text": _text,
@@ -194,7 +192,8 @@ def get_link_from_line(line):
         "render_line": hlt["bold"]
             + hlt["underline"] + hlt["link_color"]
             + str(len(state["current_links"]))
-            + hlt["reset"] + text + " "
+            + hlt["reset"] + scheme
+            + " "
             + _text
     }
 
@@ -276,12 +275,36 @@ def render(file):
         if (count + 1 == len(screenfuls)):
             continue
         else:
-            ch = getch()
-            if (ch == 'q' or ord(ch) == 4):
+            cmd = get_user_input("Press Enter to continue reading, or (URL/Num): ")
+            if (cmd == ""):
+                pass
+            elif (cmd == -1):
+                print("\r" + (" "*cols) + "\r", end='')
                 break
-            # print("\033[1A\r" + (" "*cols) + "\r", end='')
+            else:
+                isURL = False
+                _type = get_input_type(cmd)
+                if _type == 0: # plaintext URL
+                    isURL = True
+                    pass
+                elif _type == 1: # number
+                    cmd = get_number_url(cmd)
+                    if (cmd != -1):
+                        _url = validate_url(cmd)
+                        if _url:
+                            cmd = _url
+                            isURL = True
+                        else:
+                            log_error("Invalid URL.")
+                elif _type == 2:
+                    pass
+                if isURL:
+                    print("\033[1A\r" + (" "*cols) + "\r", end='')
+                    get_and_display(cmd)
+                    break
+            print("\033[1A\r" + (" "*cols) + "\r", end='')
 
-def get_input(status, meta):
+def get_1x_input(status, meta):
     prompt = meta
     sensitive = True if status[1] == "1" else False
     if sensitive:
@@ -291,19 +314,19 @@ def get_input(status, meta):
         inp = input()
     return inp
 
+def get_user_input(prompt):
+    a = None
+    try:
+        a = input(prompt)
+    except (EOFError, KeyboardInterrupt):
+        a = -1 # User terminated input
+    return a
+
 state["context"].check_hostname = False
 state["context"].verify_mode = ssl.CERT_NONE
 
-command_list = ["exit", "quit", "back", "forward", "reload"]
-
-def quit():
-    log_info("\nexiting...")
-    exit(0)
-
-def reload():
-    get_and_display(state["current_url"])
-
 def get_and_display(url):
+    state["history"].append(url)
     state["current_links"] = []
     resp = get_document_ez(url)
 
@@ -317,7 +340,7 @@ def get_and_display(url):
     if (status.startswith("1")):
         log_info("Server at", state["current_hname"], "requested input")
         _url = url if url[-1] != '/' else url[:len(url) - 1]
-        result = _url + "?" + get_input(status, meta)
+        result = _url + "?" + get_1x_input(status, meta)
         get_and_display(result)
     
     elif (status.startswith("2")):
@@ -349,16 +372,48 @@ def get_and_display(url):
     elif (status.startswith("6")):
         log_error("Server requires you to be authenticated.\n\
             Please start leo with the -cert option with the path to a valid SSL cert passed in as an argument.")
-
     else:
         log_error("Server returned invalid status code.")
 
+
+def quit():
+    print("\n" + hlt["bold"] + hlt["info_color"] + "Exiting..." + hlt["reset"])
+    exit(0)
+
+def reload():
+    get_and_display(state["current_url"])
+
+def back():
+    get_and_display(state["history"][-2])
 
 command_impls = {
     "exit": quit,
     "quit": quit,
     "reload": reload,
+    "back": back
 }
+
+def get_input_type(url):
+    split = url.split(" ")
+    if (split[0] not in command_impls.keys()) and not re.match(r'\d+', url.strip()):
+        return 0 # not a command, not a link no., must be a url
+    elif re.match(r'\d+', url.strip()):
+        return 1 # this is a link number
+    else:
+        return 2 # this is a command
+
+def get_number_url(n):
+    try:
+        link = state["current_links"][int(n)]
+        _url = link["url"]
+        if (urllib.parse.urlparse(_url).scheme != "gemini"):
+            log_info("leo does not support that scheme yet.")
+            return -1 # -1 means that you should keep the old url
+        else:
+            return _url
+    except IndexError:
+        log_error("invalid link number specified")
+        return -1
 
 if __name__ == "__main__":
     url = ""
@@ -377,39 +432,26 @@ if __name__ == "__main__":
                 state["context"] = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 state["context"].load_verify_locations(sys.argv[sys.argv.index("-cert") + 1])
     while True:
-        command = False
-        split = url.split(" ")
-
-        if (split[0] not in command_list) and not re.match(r'\d+', url.strip()):
-            pass
-        elif re.match(r'\d+', url.strip()):
-            try:
-                link = state["current_links"][int(url)]
-                _url = link["url"]
-                if (urllib.parse.urlparse(_url).scheme != "gemini"):
-                    log_info("Gemini does not support that scheme yet.")
-                    url = old_url
-                else:
-                    url = _url
-            except ValueError:
-                pass
-            except IndexError:
-                log_error("invalid link number specified")
-                url = old_url
-                continue
-        else:
-            command = True
-            command_impls[url]()
-
-        if url and not command:
-            url = validate_url(url)["final"]
-            if not url:
-                log_error("Invalid URL specified.")
-            else:
-                get_and_display(url.strip())
-
-        try:
-            old_url = url
-            url = input("(URL/Num): ")
-        except (KeyboardInterrupt, EOFError):
+        if (url == ""):
+            continue
+        if (url == -1):
             quit()
+        else:
+            _type = get_input_type(url)
+            if _type == 0: # text url
+                url = validate_url(url, True)["final"]
+                if not url:
+                    log_error("Invalid URL specified.")
+                else:
+                    get_and_display(url.strip())
+            elif _type == 1: # number
+                url = get_number_url(url)
+                if url == -1:
+                    url = old_url
+            elif _type == 2: # command
+                split = url.split(" ")
+                command_impls[url]()
+                pass
+        
+        old_url = url
+        url = get_user_input("(URL/Num): ")
