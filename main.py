@@ -203,8 +203,7 @@ def slice_line(line, length):
 
 def fmt(line, width):
     if (line.strip() == ""):
-        print()
-        return
+        return [""]
     final = []
     copy = line
     words = []
@@ -226,52 +225,53 @@ def fmt(line, width):
             words = [i]
             length = len(i)
     final.append(" ".join(words))
-    print("\n".join(final))
+    return final
 
-def render(file):
-    cols, rows = os.get_terminal_size()
-    state["render_body"] = []
+
+"""
+    @param file a file object to read from
+    @return a list of lines to be rendered
+"""
+def get_render_body(file):
+    cols, _ = os.get_terminal_size()
+    if (WRAP_TEXT and WRAP_MARGIN and type(WRAP_MARGIN) == int):
+        cols -= WRAP_MARGIN
+    final = []
+    is_toggle_line = lambda _line: _line.startswith(hlt["italic"] + hlt["unfocus_color"] + "```") or _line.startswith("```")
     in_pf_block = False
     for line in file:
+        if (line == ""):
+            final.append("")
         if (line.startswith("```")):
-            line = line.strip()
             line = hlt["italic"] + hlt["unfocus_color"] + line + hlt["reset"]
             in_pf_block = not in_pf_block
         if line.startswith("#"):
             if not in_pf_block:
                 line = hlt["bold"] + hlt["header_color"] + line + hlt["reset"]
+                final += fmt(line, cols)
         if line.startswith("=>"):
             if not in_pf_block:
                 link = get_link_from_line(line)
                 state["current_links"].append(link)
                 line = link["render_line"]
-        state["render_body"].append(line.replace("\\n", "\n"))
+                final += fmt(line, cols)
+        if in_pf_block:
+            if not is_toggle_line(line):
+                if (len(line) > cols):
+                    sliced = slice_line(line, cols - 1)
+                    final.append(sliced[0] + hlt["error_color"] + hlt["bold"] + ">" + hlt["reset"])
+                else:
+                    final.append(line)
+            else:
+                final += fmt(line, cols)
+    return final
 
-    if (WRAP_TEXT and WRAP_MARGIN and type(WRAP_MARGIN) == int):
-        cols -= WRAP_MARGIN
-    
-    in_pf_block = False
-    screenfuls = slice_line(state["render_body"], rows - 1)
+def page(lines):
+    cols, rows = os.get_terminal_size()
+    screenfuls = slice_line(lines, rows - 1)
     for count, screenful in enumerate(screenfuls):
         for line in screenful:
-            is_toggle_line = lambda _line: _line.startswith(hlt["italic"] + hlt["unfocus_color"] + "```") or _line.startswith("```")
-            if is_toggle_line(line):
-                in_pf_block = not in_pf_block
-                if in_pf_block:
-                    fmt(line.replace("```", ""), cols)
-                    print(hlt["reset"], end='')
-                else:
-                    print()
-                    continue
-            if in_pf_block:
-                if not is_toggle_line(line):
-                    if (len(line) > cols):
-                        sliced = slice_line(line, cols - 1)
-                        print(sliced[0] + hlt["error_color"] + hlt["bold"] + ">" + hlt["reset"])
-                    else:
-                        print(line)
-            else:
-                fmt(line, cols)
+            print(line)
         if (count + 1 == len(screenfuls)):
             continue
         else:
@@ -292,17 +292,20 @@ def render(file):
                     if (cmd != -1):
                         _url = validate_url(cmd)
                         if _url:
-                            cmd = _url
+                            cmd = _url["final"]
                             isURL = True
                         else:
                             log_error("Invalid URL.")
                 elif _type == 2:
                     pass
                 if isURL:
-                    print("\033[1A\r" + (" "*cols) + "\r", end='')
                     get_and_display(cmd)
                     break
             print("\033[1A\r" + (" "*cols) + "\r", end='')
+
+def render(file):
+    lines = get_render_body(file)
+    page(lines)
 
 def get_1x_input(status, meta):
     prompt = meta
@@ -345,7 +348,7 @@ def get_and_display(url):
     
     elif (status.startswith("2")):
         state["last_load_was_redirect"] = False
-        render(resp["body"])
+        get_render_body(resp["body"])
 
     elif (status.startswith("3")):
         log_info("redirected to", meta)
@@ -384,7 +387,16 @@ def reload():
     get_and_display(state["current_url"])
 
 def back():
-    get_and_display(state["history"][-2])
+    if (len(state["history"]) <= 1):
+        return
+    _idx = state["current_history_idx"]
+    if (_idx == 0):
+        get_and_display(state["history"][-2])
+        state["current_history_idx"] -= 1
+    else:
+        if len(state["history"]) > (len(state["history"]) + _idx):
+            get_and_display(state["history"][:_idx][-1])
+            state["current_history_idx"] -= 1
 
 command_impls = {
     "exit": quit,
@@ -439,11 +451,13 @@ if __name__ == "__main__":
         else:
             _type = get_input_type(url)
             if _type == 0: # text url
-                url = validate_url(url, True)["final"]
-                if not url:
+                _url = validate_url(url, True)
+                if not _url:
                     log_error("Invalid URL specified.")
+                    url = get_user_input("(URL/Num): ")
+                    continue
                 else:
-                    get_and_display(url.strip())
+                    url = _url["final"]
             elif _type == 1: # number
                 url = get_number_url(url)
                 if url == -1:
@@ -452,6 +466,9 @@ if __name__ == "__main__":
                 split = url.split(" ")
                 command_impls[url]()
                 pass
+
+            if (_type == 0 or _type == 1):
+                get_and_display(url)
         
         old_url = url
         url = get_user_input("(URL/Num): ")
