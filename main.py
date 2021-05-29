@@ -127,7 +127,7 @@ class Browser:
                     if not is_toggle_line(line):
                         if len(line) > cols:
                             sliced = slice_line(line, cols - 1)
-                            final.append(f'{sliced[0]}{hlt["error_color"]}{hlt["bold"]}>{hlt["reset"]}'')
+                            final.append(f'{sliced[0]}{hlt["error_color"]}{hlt["bold"]}>{hlt["reset"]}')
                         else:
                             final.append(line)
                     else:
@@ -312,7 +312,7 @@ def get_link_from_line(line, browser: Browser):
         return {
             "url": browser.current_url,
             "text": "INVALID LINK",
-            "render_line": f'{hlt["error_color"]}{hlt["bold"]}[INVALID LINK]{hlt['reset']}'
+            "render_line": f'{hlt["error_color"]}{hlt["bold"]}[INVALID LINK]{hlt["reset"]}'
         }
     if link_parts[0]:
         if len(link_parts) == 1:
