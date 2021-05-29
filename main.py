@@ -108,11 +108,11 @@ class Browser:
         in_pf_block = False
         for line in file:
             if line.startswith("```"):
-                line = "%s%s%s%s" % (hlt["italic"], hlt["unfocus_color"], line, hlt["reset"])
+                line = f"{hlt['italic']}{hlt['unfocus_color']}{line}{hlt['reset']}"
                 in_pf_block = not in_pf_block
             elif line.startswith("#"):
                 if not in_pf_block:
-                    line = "%s%s%s%s" % (hlt["bold"], hlt["header_color"], line, hlt["reset"])
+                    line = f"{hlt['bold']}{hlt['header_color']}{line}{hlt['reset']}"
                     final += fmt(line, cols)
             elif line.startswith("=>"):
                 if not in_pf_block:
@@ -127,7 +127,7 @@ class Browser:
                     if not is_toggle_line(line):
                         if len(line) > cols:
                             sliced = slice_line(line, cols - 1)
-                            final.append("%s%s%s>%s" % (sliced[0], hlt["error_color"], hlt["bold"], hlt["reset"]))
+                            final.append(f'{sliced[0]}{hlt["error_color"]}{hlt["bold"]}>{hlt["reset"]}'')
                         else:
                             final.append(line)
                     else:
@@ -151,7 +151,7 @@ class Browser:
                 if cmd == "":
                     pass
                 elif cmd == -1:
-                    print("\r" + (" "*cols) + "\r", end='')
+                    print(f'\r{" " * cols}\r', end='')
                     break
                 else:
                     isURL = False
@@ -172,9 +172,8 @@ class Browser:
                             self.navigate(cmd["final"])
                         else:
                             log_error("Invalid URL.")
-                        
                         break
-                print("\033[1A\r" + (" "*cols) + "\r", end='')
+                print(f'\033[1A\r{" " * cols}\r', end='')
     
     def _render(self, file):
         lines = self._get_render_body(file)
@@ -313,7 +312,7 @@ def get_link_from_line(line, browser: Browser):
         return {
             "url": browser.current_url,
             "text": "INVALID LINK",
-            "render_line": "%s%s [%s]%s" % (hlt["error_color"], hlt["bold"], "INVALID LINK", hlt["reset"]),
+            "render_line": f'{hlt["error_color"]}{hlt["bold"]}[INVALID LINK]{hlt['reset']}'
         }
     if link_parts[0]:
         if len(link_parts) == 1:
@@ -322,6 +321,7 @@ def get_link_from_line(line, browser: Browser):
     scheme = ""
     validated = validate_url(link_parts[0], browser.current_host, browser.current_url)
     if validated["scheme"] != "gemini":
+        scheme = f'{hlt["error_color"]}{hlt["bold"]} [{validated["scheme"]}]{hlt["reset"]}'
         scheme = "%s%s [%s]%s" % (hlt["error_color"], hlt["bold"], validated["scheme"], hlt["reset"])
     return {
         "url": validated["final"],
