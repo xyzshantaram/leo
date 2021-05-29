@@ -10,6 +10,7 @@ import getpass
 import urllib.parse
 import json
 import typing
+import pprint
 
 GEMINI_PORT = 1965
 REDIRECT_LOOP_THRESHOLD = 5
@@ -42,6 +43,9 @@ class Browser:
         self.context = ssl.create_default_context()
         self.context.check_hostname = False
         self.context.verify_mode = ssl.CERT_NONE
+
+        self.current_resp = []
+        self.current_body = []
 
         self.current_links = []
         self.last_load_was_redirect = False
@@ -143,6 +147,7 @@ class Browser:
                     appended = True
             if not appended:
                 final += fmt(line, cols)
+        self.current_body = [x for x in final]
         return final
 
     def _page(self, lines):
@@ -208,7 +213,7 @@ class Browser:
         
         elif status.startswith("2"):
             self.last_load_was_redirect = False
-            print(resp['body'])
+            self.current_resp = resp["body"]
             self._render(resp["body"])
         
         elif status.startswith("3"):
@@ -243,7 +248,13 @@ class Browser:
             log_error("Server returned invalid status code.")
     
     def reload(self, args:list, browser:Browser):
-        self.navigate(self.current_url)
+        if 'hard' in args:
+            self.navigate(self.current_url)
+        else:
+            self._page(self.current_body)
+    
+    def inspect(self, args: list, browser:Browser):
+        pprint.pprint(self.current_resp)
     
     def back(self, args:list, browser:Browser):
         if len(self.history) <= 1:
@@ -534,7 +545,7 @@ if __name__ == "__main__":
         },
         "reload": {
             "fn": browser.reload,
-            "help": "Reloads the current page."
+            "help": "Redisplays the current page. Type `reload hard` to redownload the page."
         },
         "back": {
             "fn": browser.back,
@@ -552,6 +563,11 @@ if __name__ == "__main__":
         "saveurl": {
             "fn": saveurl,
             "help": "\n\tUsage: saveurl FILENAME [n1] [n2] ...\n\tSave the URLs of the links with numbers n1, n2, and so on to a file in the current working directory called FILENAME. If no number is specified, it saves the current URL."
+        },
+
+        "inspect": {
+            "fn": browser.inspect,
+            "help": "Displays the raw gemtext of the current page."
         }
     }
 
