@@ -208,6 +208,7 @@ class Browser:
         
         elif status.startswith("2"):
             self.last_load_was_redirect = False
+            print(resp['body'])
             self._render(resp["body"])
         
         elif status.startswith("3"):
@@ -314,8 +315,7 @@ def get_encoded(s):
     return ((s + "\r\n").encode("UTF-8"))
 
 def get_link_from_line(line, browser: Browser):
-    link_parts = line.strip().split(maxsplit=2)
-    del link_parts[0] # remove the =>
+    link_parts = line[2:].strip().split(maxsplit=1)
     if len(link_parts) < 1:
         return {
             "url": browser.current_url,
