@@ -1,6 +1,6 @@
 {
     "cert_path": "",
     "wrap_text": true,
-    "wrap_margin": 3,
+    "wrap_width": 80,
     "homepage": ""
 }

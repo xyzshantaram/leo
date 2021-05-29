@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import socket
 import ssl
-import sys
+import argparse
 import re
 import os
 import getpass
@@ -15,8 +15,6 @@ import typing
 # TODO split into files
 
 GEMINI_PORT = 1965
-WRAP_TEXT = False
-WRAP_MARGIN = 3
 REDIRECT_LOOP_THRESHOLD = 5
 
 logger: typing.Callable | None = print
@@ -54,9 +52,14 @@ class Browser:
         self.history = []
         self.current_history_idx = 0
 
-        self.wrap_enabled = config["wrap_text"]
-        if (self.wrap_enabled):
-            self.wrap_margin = config["wrap_margin"]
+        if ("wrap_text" in config):
+            self.wrap_text = config["wrap_text"]
+        else:
+            self.wrap_text = False
+            
+        self.wrap_width = 0
+        if (self.wrap_text and "wrap_width" in config):
+            self.wrap_width = config["wrap_width"]
         
         self.cert_path = config["cert_path"]
         if (os.path.isfile(self.cert_path)):
@@ -101,38 +104,45 @@ class Browser:
     
     def _get_render_body(self, file):
         cols, _ = os.get_terminal_size()
+        if (self.wrap_text and self.wrap_width):
+            cols = min(cols, self.wrap_width)
         final = []
         is_toggle_line = lambda _line: _line.startswith(hlt["italic"] + hlt["unfocus_color"] + "```") or _line.startswith("```")
         in_pf_block = False
         for line in file:
-            if line == "":
-                final.append(line)
             if line.startswith("```"):
                 line = "%s%s%s%s" % (hlt["italic"], hlt["unfocus_color"], line, hlt["reset"])
                 in_pf_block = not in_pf_block
-            if line.startswith("#"):
+            elif line.startswith("#"):
                 if not in_pf_block:
                     line = "%s%s%s%s" % (hlt["bold"], hlt["header_color"], line, hlt["reset"])
                     final += fmt(line, cols)
-            if line.startswith("=>"):
+            elif line.startswith("=>"):
                 if not in_pf_block:
                     link = get_link_from_line(line, self)
                     self.current_links.append(link)
                     line = link["render_line"]
                     final += fmt(line, cols)
-            if in_pf_block:
-                if not is_toggle_line(line):
-                    if len(line) > cols:
-                        sliced = slice_line(line, cols - 1)
-                        final.append("%s%s%s>%s" % (sliced[0], hlt["error_color"], hlt["bold"], ">", hlt["reset"]))
+            elif line.startswith(">"):
+                line[0] = "|"
+            else:
+                if in_pf_block:
+                    if not is_toggle_line(line):
+                        if len(line) > cols:
+                            sliced = slice_line(line, cols - 1)
+                            final.append("%s%s%s>%s" % (sliced[0], hlt["error_color"], hlt["bold"], hlt["reset"]))
+                        else:
+                            final.append(line)
                     else:
-                        final.append(line)
+                        final += fmt(line, cols)
                 else:
                     final += fmt(line, cols)
         return final
 
     def _page(self, lines):
         cols, rows = os.get_terminal_size()
+        if (self.wrap_text and self.wrap_width):
+            cols = min(cols, self.wrap_width)
         screenfuls = slice_line(lines, rows - 1)
         for count, screenful in enumerate(screenfuls):
             for line in screenful:
@@ -140,7 +150,7 @@ class Browser:
             if (count + 1) == len(screenfuls):
                 continue
             else:
-                cmd = get_user_input("Press Enter to continue reading, or (URL/Num): ")
+                cmd = get_user_input(f"{hlt['bold']}Enter to continue reading, Ctrl-C to stop, or (URL/Num): {hlt['reset']}")
                 if cmd == "":
                     pass
                 elif cmd == -1:
@@ -155,16 +165,17 @@ class Browser:
                     elif _type == 1: # number
                         cmd = get_number_url(cmd, self)
                         if cmd != -1:
-                            _url = validate_url(cmd, self.current_host, self.current_url)
-                            if _url:
-                                cmd = _url["final"]
-                                isURL = True
-                            else:
-                                log_error("Invalid URL.")
+                            isURL = True
+                            
                     elif _type == 2:
                         pass
                     if isURL:
-                        self.navigate(cmd)
+                        cmd = validate_url(cmd, self.current_host, self.current_url, True)
+                        if cmd:
+                            self.navigate(cmd["final"])
+                        else:
+                            log_error("Invalid URL.")
+                        
                         break
                 print("\033[1A\r" + (" "*cols) + "\r", end='')
     
@@ -229,17 +240,11 @@ class Browser:
         self.navigate(self.current_url)
     
     def back(self):
-        if (len(self.history) <= 1):
+        print(self.history)
+        if len(self.history) <= 1:
             return
-        _idx = self.current_history_idx
-        if _idx == 0:
-            self.navigate(self.history[-2])
-            self.current_history_idx -= 1
-        else:
-            _len = len(self.history)
-            if _len > (_len + _idx):
-                self.navigate(self.history[:_idx][-1])
-                self.current_history_idx -= 1
+        self.history.pop()
+        self.navigate(self.history.pop())
     
     def enable_cert(self):
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -279,7 +284,6 @@ def validate_url(url: str, host: str, current: str, internal=False):
             return {
                 "final": "gemini://" + url,
                 "scheme": "gemini"
-
             }
         base = host
         if "gemini://" not in base:
@@ -321,7 +325,7 @@ def get_link_from_line(line, browser: Browser):
     scheme = ""
     validated = validate_url(link_parts[0], browser.current_host, browser.current_url)
     if validated["scheme"] != "gemini":
-        scheme = "%s%s [%s] %s %s " % (hlt["error_color"], hlt["bold"], validated["scheme"], hlt["reset"], _text)
+        scheme = "%s%s [%s]%s" % (hlt["error_color"], hlt["bold"], validated["scheme"], hlt["reset"])
     return {
         "url": validated["final"],
         "text": _text,
@@ -378,8 +382,15 @@ def get_user_input(prompt):
     return a
 
 def quit():
-    print("\n" + hlt["bold"] + hlt["info_color"] + "Exiting..." + hlt["reset"])
+    print("\n", hlt["bold"], hlt["info_color"], "Exiting...", hlt["reset"], sep='')
     exit(0)
+
+def print_help():
+    print(hlt["info_color"], hlt['bold'], "*** Commands ***", hlt["reset"], sep='')
+    for (key, val) in command_impls.items():
+        if ("help" in val):
+            print(f"\t{hlt['bold']}{key}{hlt['reset']}:\t{val['help']}")
+
 
 def get_input_type(url):
     split = url.split(" ")
@@ -404,32 +415,76 @@ def get_number_url(n, browser: Browser):
         return -1
 
 if __name__ == "__main__":
-    config = open("config.json").read()
-    config = json.loads(config)
-    browser = Browser(config)
     url = ""
     old_url = ""
 
+    parser = argparse.ArgumentParser(prog='leo', description="Command-line Gemini browser.")
+    parser.add_argument("--url", required=False, type=str, help='Initial URL to navigate to. If left blank and no homepage is set, you will be prompted.')
+    parser.add_argument("--config", required=False, type=str, help='Config file location. If left blank, will look for a file named config.json in the current working directory.')
+    args = parser.parse_args()
+
+    config = {
+        "wrap_text": False,
+        "wrap_width": 0,
+        "homepage": "",
+        "cert_path": ""
+    }
+
+    config_path = ""
+
+    if args.config:
+        if (os.path.isfile(args.config)):
+            config_path = args.config
+            config = json.loads(open(args.config).read())
+    else:
+        path = (os.path.realpath(__file__))
+        parts = path.split('/')
+        del parts[-1]
+        path = f"{'/'.join(parts)}/config.json"
+        if os.path.isfile(path):
+            config_path = path
+            config = json.loads(open(path).read())
+    if config_path != "":
+        log_info(f"Loaded config from {config_path}")
+
+    browser = Browser(config)
+
     command_impls = {
-        "exit": quit,
-        "quit": quit,
-        "reload": browser.reload,
-        "back": browser.back
+        "exit": {
+            "fn": quit,
+            "help": "Exits leo."
+        },
+        "quit": {
+            "fn": quit,
+            "help": "Exits leo."
+        },
+        "reload": {
+            "fn": browser.reload,
+            "help": "Reloads the current page."
+        },
+        "back": {
+            "fn": browser.back,
+            "help": "Goes back a page."
+        },
+        "help": {
+            "fn": print_help,
+        },
     }
 
     if "homepage" in config and config["homepage"] != "":
-        url = config["homepage"]
+        url = config["homepage"] # takes precedence over prompting
     
-    if len(sys.argv) > 1:
-        url = sys.argv[1]
+    if (args.url):
+        url = args.url # always takes precedence over config file
     else:
         try:
-            url = input("(URL): ")
+            url = input("(URL): ") # never takes precedence
         except (KeyboardInterrupt, EOFError):
             quit()
 
     while True:
         if url == "":
+            url = get_user_input("(URL/Num): ")
             continue
         if url == -1:
             quit()
@@ -449,7 +504,7 @@ if __name__ == "__main__":
                     url = old_url
             elif _type == 2: # command
                 split = url.split(" ")
-                command_impls[url]()
+                command_impls[url]["fn"]()
                 pass
 
             if _type == 0 or _type == 1:
