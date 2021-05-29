@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='gmi-leo',
-    version='1.0.1',
+    version='1.0.2',
     scripts=['leo'],
     author='shantaram',
     author_email='me@shantaram.xyz',
@@ -17,7 +17,6 @@ setup(
         "Bug Tracker": "https://github.com/shantaram3013/leo",
         "README": "https://github.com/shantaram3013/leo#readme"
     },
-    data_files=[('leo', ['config.json'])],
     long_description_content_type='text/markdown',
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -25,5 +24,5 @@ setup(
         "Operating System :: POSIX :: Linux",
         "Development Status :: 4 - Beta"
     ],
-    keywords='leo gemini gopher internet protocol www client',
+    keywords='leo gemini gopher http fediverse internet protocol www client',
 )
