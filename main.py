@@ -11,9 +11,6 @@ import urllib.parse
 import json
 import typing
 
-# TODO error handling
-# TODO split into files
-
 GEMINI_PORT = 1965
 REDIRECT_LOOP_THRESHOLD = 5
 
