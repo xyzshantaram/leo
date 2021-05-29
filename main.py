@@ -408,13 +408,16 @@ def get_input_type(url):
     else:
         return 2 # this is a command
 
-def get_number_url(n, browser: Browser):
+def get_number_url(n, browser: Browser, internal=False):
     try:
         link = browser.current_links[int(n)]
         _url = link["url"]
         if urllib.parse.urlparse(_url).scheme != "gemini":
-            log_info("Sorry, leo does not support that scheme yet.")
-            return -1 # -1 means that you should keep the old url
+            if not internal:
+                log_info("Sorry, leo does not support that scheme yet.")
+                return -1 # -1 means that you should keep the old url
+            else:
+                return _url
         else:
             return _url
     except IndexError:
@@ -478,7 +481,7 @@ def printurl(args:list, browser:Browser):
     elif (len(args)) >= 2:
         for arg in args[1:]:
             try:
-                _url = get_number_url(int(arg), browser)
+                _url = get_number_url(int(arg), browser, True)
                 if (_url == -1):
                     continue
                 log_info("URL of %d is %s" % (int(arg), _url))
