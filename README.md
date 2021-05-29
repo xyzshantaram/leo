@@ -1,6 +1,6 @@
 # leo
 
-### a gemini client written in Python 3. Aiming to use only the standard library as far as possible.
+### a gemini client written in Python 3.
 
 #### (UNIX-only, Windows support with WSL)    
 
@@ -29,6 +29,7 @@ _Note_: You can specify an alternate config file with the `--config` option.
 8) Type ```exit``` or ```quit``` to exit leo.  
 
 #### Features:
+* Only uses the python standard library
 * Fully implements Gemini spec
 * Passes torture tests at gemini://gemini.conman.org/test/torture/ (Save for the final few Unicode ones, but I cba to read a spec)
 * formatted text output with arbitrary wrapping support
