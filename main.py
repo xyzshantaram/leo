@@ -122,7 +122,8 @@ class Browser:
                     line = link["render_line"]
                     final += fmt(line, cols)
             elif line.startswith(">"):
-                line = "|" + line[1:]
+                if not in_pf_block:
+                    line = "|" + line[1:]
             else:
                 if in_pf_block:
                     if not is_toggle_line(line):
