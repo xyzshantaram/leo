@@ -27,3 +27,10 @@ _Note_: You can specify an alternate config file with the `--config` option.
 7) View a short listing of these commands anytime by typing `help`.  
 
 8) Type ```exit``` or ```quit``` to exit leo.  
+
+#### Features:
+* Fully implements Gemini spec
+* Passes torture tests at gemini://gemini.conman.org/test/torture/ (Save for the final few Unicode ones, but I cba to read a spec)
+* formatted text output with arbitrary wrapping support
+* The lack of tabbed browsing is a feature
+* Comes with a built-in pager!
