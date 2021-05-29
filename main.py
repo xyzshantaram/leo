@@ -108,11 +108,11 @@ class Browser:
             if line == "":
                 final.append(line)
             if line.startswith("```"):
-                line = hlt["italic"] + hlt["unfocus_color"] + line + hlt["reset"]
+                line = "%s%s%s%s" % (hlt["italic"], hlt["unfocus_color"], line, hlt["reset"])
                 in_pf_block = not in_pf_block
             if line.startswith("#"):
                 if not in_pf_block:
-                    line = hlt["bold"] + hlt["header_color"] + line + hlt["reset"]
+                    line = "%s%s%s%s" % (hlt["bold"], hlt["header_color"], line, hlt["reset"])
                     final += fmt(line, cols)
             if line.startswith("=>"):
                 if not in_pf_block:
@@ -124,7 +124,7 @@ class Browser:
                 if not is_toggle_line(line):
                     if len(line) > cols:
                         sliced = slice_line(line, cols - 1)
-                        final.append(sliced[0] + hlt["error_color"] + hlt["bold"] + ">" + hlt["reset"])
+                        final.append("%s%s%s>%s" % (sliced[0], hlt["error_color"], hlt["bold"], ">", hlt["reset"]))
                     else:
                         final.append(line)
                 else:
@@ -261,7 +261,7 @@ def log_info(*argv):
 def log_error(*argv):
     log_debug(*argv)
     if logger:
-        logger(hlt["bold"] + hlt["error_color"], end='')
+        logger(hlt["bold"], hlt["error_color"], sep='', end='')
         logger(*argv)
         logger(hlt["reset"], end='')
 
@@ -326,12 +326,7 @@ def get_link_from_line(line, browser: Browser):
         "url": validated["final"],
         "text": _text,
          # print links in bold, underlined.
-        "render_line": hlt["bold"]
-            + hlt["underline"] + hlt["link_color"]
-            + str(len(browser.current_links))
-            + hlt["reset"] + scheme
-            + " "
-            + _text
+         "render_line": "%s%s%s%d%s%s %s" % (hlt["bold"], hlt["underline"], hlt["link_color"], len(browser.current_links), hlt["reset"], scheme, _text)
     }
 
 def slice_line(line, length):
