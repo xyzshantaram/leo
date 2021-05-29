@@ -15,7 +15,7 @@ GEMINI_PORT = 1965
 REDIRECT_LOOP_THRESHOLD = 5
 
 logger: typing.Callable | None = print
-debug_logger: typing.Callable | None
+debug_logger: typing.Callable | None = None
 
 hlt = {
     "bold": "\033[1m",
@@ -109,6 +109,7 @@ class Browser:
         for line in file:
             if line.startswith("```"):
                 line = f"{hlt['italic']}{hlt['unfocus_color']}{line}{hlt['reset']}"
+                final.append(line)
                 in_pf_block = not in_pf_block
             elif line.startswith("#"):
                 if not in_pf_block:
@@ -121,7 +122,7 @@ class Browser:
                     line = link["render_line"]
                     final += fmt(line, cols)
             elif line.startswith(">"):
-                line[0] = "|"
+                line = "|" + line[1:]
             else:
                 if in_pf_block:
                     if not is_toggle_line(line):
@@ -232,10 +233,10 @@ class Browser:
         else:
             log_error("Server returned invalid status code.")
     
-    def reload(self):
+    def reload(self, args:list, browser:Browser):
         self.navigate(self.current_url)
     
-    def back(self):
+    def back(self, args:list, browser:Browser):
         print(self.history)
         if len(self.history) <= 1:
             return
@@ -263,12 +264,12 @@ def log_error(*argv):
     log_debug(*argv)
     if logger:
         logger(hlt["bold"], hlt["error_color"], sep='', end='')
-        logger(*argv)
+        logger("ERROR:", *argv)
         logger(hlt["reset"], end='')
 
 def log_debug(*argv):
-    if debug_logger:
-        # pylint: disable=C0321
+    if debug_logger is not None:
+        # pylint: disable=E1102
         debug_logger(*argv)
 
 def set_term_title(s: str):
@@ -378,11 +379,13 @@ def get_user_input(prompt):
         a = -1 # User terminated input
     return a
 
-def quit():
+def quit(args:list, browser:Browser):
+    # pylint: disable=unused-argument
     print("\n", hlt["bold"], hlt["info_color"], "Exiting...", hlt["reset"], sep='')
     exit(0)
 
-def print_help():
+def print_help(args:list, browser:Browser):
+    # pylint: disable=unused-argument
     print(hlt["info_color"], hlt['bold'], "*** Commands ***", hlt["reset"], sep='')
     for (key, val) in command_impls.items():
         if ("help" in val):
@@ -408,8 +411,72 @@ def get_number_url(n, browser: Browser):
         else:
             return _url
     except IndexError:
-        log_error("invalid link number specified")
+        log_error("invalid link number specified: ", str(n))
         return -1
+
+def saveurl(args:list, browser:Browser):
+    save_path = ""
+    if (len(args)) == 1:
+        log_error("You must specify a filename.")
+        return
+    elif (len(args)) >= 2:
+        save_path = args[1]
+        mode = "a"
+        if os.path.isfile(save_path) and not os.path.isdir(save_path): # file and not a directory
+            inp = input(hlt["bold"] + "File exists. (O)verwrite/ (A)ppend / (C)ancel " + hlt["reset"]) # prompt
+            inp = inp.lower().strip()
+            if inp == "o":
+                mode = "w" # Truncates file to zero if exists.
+            elif inp == "a":
+                mode = "a" # Appends to end of file.
+            else: # any other input mode
+                log_info("Canceled.")
+                return
+        elif os.path.isdir(save_path):
+            log_error("Supplied path is a directory.")
+            return
+        if "/" in save_path:
+            save_dir = os.path.dirname(save_path)
+            if not os.path.isdir(save_dir): # oh no! dir doesn't exist ;_;
+                log_error(f"No such directory: {save_dir}")
+                return
+        else:
+            save_dir = os.getcwd()
+        if os.access(save_dir, os.W_OK): # if we have write permissions
+            lines = []
+            with open(save_path, mode) as fp: # open the save path
+                if args[2:] == []: # no numbers specified
+                    lines.append(browser.current_url) # write the current url
+                else: # numbers specified
+                    for arg in args[2:]:
+                        try:
+                            _url = get_number_url(int(arg), browser)
+                            if (_url == -1):
+                                continue
+                            else:
+                                lines.append(_url)
+                        except ValueError:
+                            log_error("invalid link number specified:", int(arg))
+                try:
+                    fp.writelines(map(lambda a: a + "\n", lines))
+                    log_info("Saved files successfully.")
+                except:
+                    log_error("Could not save files.")
+        else:
+            log_error(f"Cannot write to {save_dir}: Insufficient permissions")
+
+def printurl(args:list, browser:Browser):
+    if (len(args)) == 1:
+        log_info("Current URL:", browser.current_url)
+    elif (len(args)) >= 2:
+        for arg in args[1:]:
+            try:
+                _url = get_number_url(int(arg), browser)
+                if (_url == -1):
+                    continue
+                log_info("URL of %d is %s" % (int(arg), _url))
+            except ValueError:
+                log_error("invalid link number specified")
 
 if __name__ == "__main__":
     url = ""
@@ -466,6 +533,16 @@ if __name__ == "__main__":
         "help": {
             "fn": print_help,
         },
+
+        "printurl": {
+            "fn": printurl,
+            "help": "\n\tUsage: printurl [n1] [n2] ...\n\tPrint the URL of the links with numbers n1, n2, and so on. If no number is specified, prints the current URL."
+        },
+
+        "saveurl": {
+            "fn": saveurl,
+            "help": "\n\tUsage: saveurl FILENAME [n1] [n2] ...\n\tSave the URLs of the links with numbers n1, n2, and so on to a file in the current working directory called FILENAME. If no number is specified, it saves the current URL."
+        }
     }
 
     if "homepage" in config and config["homepage"] != "":
@@ -477,14 +554,14 @@ if __name__ == "__main__":
         try:
             url = input("(URL): ") # never takes precedence
         except (KeyboardInterrupt, EOFError):
-            quit()
+            quit(None, None)
 
     while True:
         if url == "":
             url = get_user_input("(URL/Num): ")
             continue
         if url == -1:
-            quit()
+            quit(None, None)
         else:
             _type = get_input_type(url)
             if _type == 0: # text url
@@ -501,7 +578,7 @@ if __name__ == "__main__":
                     url = old_url
             elif _type == 2: # command
                 split = url.split(" ")
-                command_impls[url]["fn"]()
+                command_impls[split[0]]["fn"](split, browser)
                 pass
 
             if _type == 0 or _type == 1:
