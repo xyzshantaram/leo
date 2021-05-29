@@ -18,14 +18,14 @@ logger: typing.Callable | None = print
 debug_logger: typing.Callable | None = None
 
 hlt = {
+    "reset": "\033[0m",
+    "italic": "\033[3m",
     "bold": "\033[1m",
     "underline": "\033[4m",
     "error_color": "\033[38;5;1m",
     "info_color": "\033[38;5;3m",
     "header_color": "\033[38;5;119m",
     "link_color": "\033[38;5;13m",
-    "reset": "\033[0m",
-    "italic": "\033[3m",
     "unfocus_color": "\033[38;5;8m",
     "set_title": "\033]0;%s\a"
 }
@@ -107,35 +107,42 @@ class Browser:
         is_toggle_line = lambda _line: _line.startswith(hlt["italic"] + hlt["unfocus_color"] + "```") or _line.startswith("```")
         in_pf_block = False
         for line in file:
+            appended = False
             if line.startswith("```"):
-                line = f"{hlt['italic']}{hlt['unfocus_color']}{line}{hlt['reset']}"
-                final.append(line)
+                line = hlt['italic'] + hlt['unfocus_color'] + line + hlt['reset']
                 in_pf_block = not in_pf_block
-            elif line.startswith("#"):
+                final += fmt(line, cols)
+                appended = True
+            if line.startswith("#"):
                 if not in_pf_block:
                     line = f"{hlt['bold']}{hlt['header_color']}{line}{hlt['reset']}"
                     final += fmt(line, cols)
-            elif line.startswith("=>"):
+                    appended = True
+            if line.startswith("=>"):
                 if not in_pf_block:
                     link = get_link_from_line(line, self)
                     self.current_links.append(link)
                     line = link["render_line"]
                     final += fmt(line, cols)
-            elif line.startswith(">"):
+                    appended = True
+            if line.startswith(">"):
                 if not in_pf_block:
                     line = "|" + line[1:]
-            else:
-                if in_pf_block:
-                    if not is_toggle_line(line):
-                        if len(line) > cols:
-                            sliced = slice_line(line, cols - 1)
-                            final.append(f'{sliced[0]}{hlt["error_color"]}{hlt["bold"]}>{hlt["reset"]}')
-                        else:
-                            final.append(line)
+                    final.append(line)
+                    appended = True
+            if in_pf_block:
+                if not is_toggle_line(line):
+                    if len(line) > cols:
+                        sliced = slice_line(line, cols - 1)
+                        line = f'{sliced[0]}{hlt["error_color"]}{hlt["bold"]}>{hlt["reset"]}'
                     else:
-                        final += fmt(line, cols)
+                        pass
+                    final.append(line)
+                    appended = True
                 else:
-                    final += fmt(line, cols)
+                    appended = True
+            if not appended:
+                final += fmt(line, cols)
         return final
 
     def _page(self, lines):
@@ -238,7 +245,6 @@ class Browser:
         self.navigate(self.current_url)
     
     def back(self, args:list, browser:Browser):
-        print(self.history)
         if len(self.history) <= 1:
             return
         self.history.pop()
