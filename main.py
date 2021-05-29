@@ -149,7 +149,7 @@ class Browser:
             if (count + 1) == len(screenfuls):
                 continue
             else:
-                cmd = get_user_input(f"{hlt['bold']}Enter to continue reading, Ctrl-C to stop, or (URL/Num): {hlt['reset']}")
+                cmd = get_user_input(f"{hlt['bold']}{hlt['unfocus_color']}Enter to continue reading, Ctrl-C to stop, or (URL/Num): {hlt['reset']}")
                 if cmd == "":
                     pass
                 elif cmd == -1:
