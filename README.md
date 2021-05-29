@@ -24,7 +24,7 @@ _Note_: You can specify an alternate config file with the `--config` option.
 
 6) `back` takes you one page back.  
 
-7) View a short listing of these commands anytime by typing `help`.  
+7) Type `help` at any time to view a listing of these and other useful commands.
 
 8) Type ```exit``` or ```quit``` to exit leo.  
 
@@ -35,3 +35,4 @@ _Note_: You can specify an alternate config file with the `--config` option.
 * formatted text output with arbitrary wrapping support
 * The lack of tabbed browsing is a feature
 * Comes with a built-in pager!
+* Lets you save a list of URLs to a file for further viewing / opening in another window
