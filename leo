@@ -658,7 +658,7 @@ if __name__ == "__main__":
     if (args.url):
         url = args.url # always takes precedence over config file
 
-
+    first = False
     if url != "":
         first = True
 
