@@ -658,10 +658,17 @@ if __name__ == "__main__":
     if (args.url):
         url = args.url # always takes precedence over config file
 
+
+    if url != "":
+        first = True
+
     while True:
         old_url = url
         try:
-            url = get_user_input("(URL/Num): ")
+            if first:
+                first = False
+            else:
+                url = get_user_input("(URL/Num): ")
             if url == "":
                 continue
         except EOFError:
