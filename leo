@@ -532,6 +532,10 @@ def printurl(args:list, browser:Browser):
         except ValueError:
             log_error("invalid link number specified")
 
+def list_links(args:list, browser:Browser):
+    links = [x['render_line'] for x in browser.current_links]
+    browser._page(links)
+
 def load_default_config():
     config_file_location = os.path.join(get_config_path(), "config.json")
     if os.path.isfile(config_file_location):
@@ -646,6 +650,10 @@ if __name__ == "__main__":
         "inspect": {
             "fn": browser.inspect,
             "help": "Displays the raw gemtext of the current page."
+        },
+        "ls": {
+            "fn": list_links,
+            "help": "Lists the links present on the current page, and their serial numbers."
         }
     }
 
