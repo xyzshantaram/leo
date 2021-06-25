@@ -1,5 +1,5 @@
-[] error handling
+[x] error handling # it's much better than before
 [] split into files
-[] add install script
+[x] add install script # using pip
 [] make quoting prettier
 [] Add scheme handler

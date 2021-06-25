@@ -16,7 +16,7 @@
 
     _**Note**: You can specify an alternate config file with the `--config` option._
 
-3) ```$ leo --url <url>```. If you do not specify a URL, the homepage set in `config.json` is loaded. If no homepage is set, you will be prompted for a URL.  
+3) ```$ leo --url <url>```. If you do not specify a URL, the homepage set in `config.json` is loaded. If no homepage is set, you will be prompted for a URL.
 
 4) if you'd like to connect providing a client certificate (required by certain Gemini servers), set the `"cert_path"` option in your config file to a valid path to a cert file.
 
@@ -26,14 +26,16 @@
 
 7) `back` takes you one page back.  
 
-8) Type `help` at any time to view a listing of these and other useful commands.
+8) `ls` lists all of the links on the current page, for easy navigation.
 
-9) Type ```exit``` or ```quit``` to exit leo.  
+9) Type `help` at any time to view a listing of these and other useful commands.
+
+10) Type ```exit``` or ```quit``` to exit leo.  
 
 #### Features:
 * Only uses the python standard library
 * Fully implements Gemini spec
-* Passes torture tests at gemini://gemini.conman.org/test/torture/ (Save for the final few Unicode ones, but I cba to read a spec)
+* Passes torture tests at gemini://gemini.conman.org/test/torture/ (Save for the final few Unicode ones, but Unicode support is hard)
 * formatted text output with arbitrary wrapping support
 * Comes with a built-in pager!
 * Lets you save a list of URLs to a file for further viewing / opening in another window
