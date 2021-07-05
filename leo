@@ -192,6 +192,7 @@ class Browser:
                             log_error("Invalid command specified.")
                             input('Press Enter to continue...')
                     else:
+                        split = cmd.split()
                         command_impls[split[0]]["fn"](split, self)
                         input('Press Enter to continue...')
 
