@@ -185,8 +185,17 @@ class Browser:
                             except:
                                 continue
                         cmd = validate_url(cmd, self.current_host, self.current_url, True)
-                        self.navigate(cmd["final"])
-                        break
+                        try:
+                            self.navigate(cmd["final"])
+                            break
+                        except TypeError:
+                            log_error("Invalid command specified.")
+                            input('Press Enter to continue...')
+                    else:
+                        command_impls[split[0]]["fn"](split, self)
+                        input('Press Enter to continue...')
+
+
                 print(f'\033[1A\r{" " * cols}\r', end='')
     
     def _render(self, file):
@@ -697,7 +706,10 @@ if __name__ == "__main__":
                 url = None
         elif _type == 2: # command
             split = url.split(" ")
-            command_impls[split[0]]["fn"](split, browser)
+            if split[0] in command_impls:
+                command_impls[split[0]]["fn"](split, browser)
+            else:
+                log_error("Command not found: ", split[0])
 
         if (_type == 0 or _type == 1) and url is not None:
             browser.navigate(url)
