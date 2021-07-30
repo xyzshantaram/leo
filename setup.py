@@ -5,17 +5,17 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='leo-gmi',
-    version='1.1.0',
+    version='1.1.1',
     scripts=['leo'],
     author='shantaram',
     author_email='me@shantaram.xyz',
     license='MIT',
     description='A terminal-based client for the Gemini protocol.',
     long_description=long_description,
-    url="https://github.com/shantaram3013/leo",
+    url="https://github.com/xyzshantaram/leo",
     project_urls={
-        "Bug Tracker": "https://github.com/shantaram3013/leo",
-        "README": "https://github.com/shantaram3013/leo#readme"
+        "Bug Tracker": "https://github.com/xyzshantaram/leo",
+        "README": "https://github.com/xyzshantaram/leo#readme"
     },
     long_description_content_type='text/markdown',
     classifiers=[
