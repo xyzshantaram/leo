@@ -167,6 +167,8 @@ class Browser:
         for count, screenful in enumerate(screenfuls):
             for idx, line in enumerate(screenful):
                 if (count >= 1 and idx == 0):
+                    if line.strip() == "":
+                        line = "*" * cols
                     print(hlt["reverse"] + hlt["header_color"] + hlt["bold"] + line + hlt["reset"])
                 else:
                     print(line)
