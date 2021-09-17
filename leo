@@ -38,7 +38,8 @@ hlt = {
     "header_color": "\033[38;5;119m",
     "link_color": "\033[38;5;13m",
     "unfocus_color": "\033[38;5;8m",
-    "set_title": "\033]0;%s\a"
+    "set_title": "\033]0;%s\a",
+    "reverse": "\033[7m",
 }
 
 hlt_vals = list(hlt.values())
@@ -164,8 +165,11 @@ class Browser:
             cols = min(cols, self.wrap_width)
         screenfuls = slice_line(lines, rows - 1)
         for count, screenful in enumerate(screenfuls):
-            for line in screenful:
-                print(line)
+            for idx, line in enumerate(screenful):
+                if (count >= 1 and idx == 0):
+                    print(hlt["reverse"] + hlt["header_color"] + hlt["bold"] + line + hlt["reset"])
+                else:
+                    print(line)
             if (count + 1) == len(screenfuls):
                 continue
             else:
