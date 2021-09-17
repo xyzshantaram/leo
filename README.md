@@ -2,12 +2,12 @@
 
 ## a gemini client written in Python 3.
 
-#### (UNIX-only, Windows support with WSL)    
+#### (Linux-only, Windows support with WSL)    
 
 ### Instructions for use:
 0) `$ pip install leo-gmi`
 1) `$ leo --copy-config` to create a config file in `$XDG_CONFIG_HOME/leo` (falls back to `~/.config/leo`)
-* If you don't want to put the config file in either of those places, `leo --print-config` prints out the config that you can then supply to leo with the `--config` option.
+    * If you don't want to put the config file in either of those places, `leo --print-config` prints out the config that you can then supply to leo with the `--config` option.
 2) set options to your preferences in the `config.json` file.
     * `wrap_text` specifies whether to wrap text beyond a certain width.
     * `wrap_margin` specifies what that width should be.
@@ -22,7 +22,7 @@
 
 5) Links are preceded by a number that is underlined and violet in colour. Type in the number of the link at the `(URL/Num):` prompt in order to navigate to a specific link, or type in a URL.  
 
-6) Type `reload` to refresh a page. `reload hard` redownloads the page.  
+6) Type `reload` to re-render a page. `reload hard` redownloads the page.  
 
 7) `back` takes you one page back.  
 
@@ -37,7 +37,6 @@
 * Fully implements Gemini spec
 * Passes torture tests at gemini://gemini.conman.org/test/torture/ (Save for the final few Unicode ones, but Unicode support is hard)
 * formatted text output with arbitrary wrapping support
-* Comes with a built-in pager!
 * Lets you save a list of URLs to a file for further viewing / opening in another window
 
 ### Contributing
