@@ -112,20 +112,34 @@ class Browser:
             response_body = fp_doc.read()
             if response_body:
                 decoded = False
-                image_extensions = ('png', 'webp', 'jpeg', 'jpg', 'gif')
+                image_extensions = (
+                    'png', 'webp', 'jpeg', 'jpg', 'gif', 'avif',
+                    'svg', 'ico', 'jxl'
+                )
                 detected_image_ext = ''
                 for ext in image_extensions:
                     if url.endswith('.' + ext):
                         detected_image_ext = ext
                         break
+                detected_media_ext = ''
                 if not detected_image_ext:
+                    media_extensions = (
+                        'mp3', 'mp4', 'ogg', 'webm', 'avi', 'flac',
+                        'aac', 'wma', 'wav', 'pcm', 'aiff', 'alac',
+                        'opus', 'ogv'
+                    )
+                    for ext in media_extensions:
+                        if url.endswith('.' + ext):
+                            detected_media_ext = ext
+                            break
+                if not detected_image_ext and not detected_media_ext:
                     try:
                         response_body = response_body.decode(charset)
                         response_body = response_body.split("\n")
                         decoded = True
                     except UnicodeDecodeError:
                         log_info("Unable to decode", url)
-                else:
+                elif detected_image_ext:
                     # save image to be shown
                     image_filename = '.leo_temp_image.' + detected_image_ext
                     with open(image_filename, 'wb') as fp_image:
@@ -139,6 +153,22 @@ class Browser:
                     if os.path.isfile(image_filename):
                         try:
                             os.remove(image_filename)
+                        except BaseException:
+                            pass
+                elif detected_media_ext:
+                    # save media to be shown
+                    media_filename = '.leo_temp_media.' + detected_media_ext
+                    with open(media_filename, 'wb') as fp_media:
+                        fp_media.write(response_body)
+                    # show media if a command is available
+                    if os.path.isfile('/usr/bin/nvlc'):
+                        os.system('nvlc ' + media_filename)
+                    elif os.path.isfile('/usr/bin/cvlc'):
+                        os.system('cvlc ' + media_filename)
+                    # remove media after display
+                    if os.path.isfile(media_filename):
+                        try:
+                            os.remove(media_filename)
                         except BaseException:
                             pass
                 if not decoded:
