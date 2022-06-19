@@ -113,13 +113,12 @@ class Browser:
             if response_body:
                 decoded = False
                 image_extensions = ('png', 'webp', 'jpeg', 'jpg', 'gif')
-                detected_ext = ''
+                detected_image_ext = ''
                 for ext in image_extensions:
                     if url.endswith('.' + ext):
-                        detected_ext = ext
-                        is_image = True
+                        detected_image_ext = ext
                         break
-                if not is_image:
+                if not detected_image_ext:
                     try:
                         response_body = response_body.decode(charset)
                         response_body = response_body.split("\n")
@@ -128,7 +127,7 @@ class Browser:
                         log_info("Unable to decode", url)
                 else:
                     # save image to be shown
-                    image_filename = '.leo_temp_image.' + detected_ext
+                    image_filename = '.leo_temp_image.' + detected_image_ext
                     with open(image_filename, 'wb') as fp_image:
                         fp_image.write(response_body)
                     # show image if a command is available
