@@ -132,7 +132,13 @@ class Browser:
                         if url.endswith('.' + ext):
                             detected_media_ext = ext
                             break
+                detected_torrent_ext = ''
                 if not detected_image_ext and not detected_media_ext:
+                    if url.endswith('.torrent'):
+                        detected_torrent_ext = 'torrent'
+                if not detected_image_ext and \
+                   not detected_media_ext and \
+                   not detected_torrent_ext:
                     try:
                         response_body = response_body.decode(charset)
                         response_body = response_body.split("\n")
@@ -169,6 +175,21 @@ class Browser:
                     if os.path.isfile(media_filename):
                         try:
                             os.remove(media_filename)
+                        except BaseException:
+                            pass
+                elif detected_torrent_ext:
+                    # save torrent to be shown
+                    torrent_filename = \
+                        '.leo_temp_torrent.' + detected_torrent_ext
+                    with open(torrent_filename, 'wb') as fp_torrent:
+                        fp_torrent.write(response_body)
+                    # open torrent if a command is available
+                    if os.path.isfile('/usr/bin/rtorrent'):
+                        os.system('rtorrent ' + torrent_filename)
+                    # remove torrent after opening
+                    if os.path.isfile(torrent_filename):
+                        try:
+                            os.remove(torrent_filename)
                         except BaseException:
                             pass
                 if not decoded:
