@@ -111,8 +111,16 @@ class Browser:
             meta = " ".join(header[1:])
             response_body = fp_doc.read()
             if response_body:
-                response_body = response_body.decode(charset)
-                response_body = response_body.split("\n")
+                decoded = False
+                try:
+                    response_body = response_body.decode(charset)
+                    response_body = response_body.split("\n")
+                    decoded = True
+                except UnicodeDecodeError:
+                    pass
+                if not decoded:
+                    log_info("Unable to decode", url)
+                    return {}
             fp_doc.close()
         return {
             "status": status,
@@ -233,6 +241,8 @@ class Browser:
         self.history.append(url)
         self.current_links = []
         resp = self._get_gemini_document(url)
+        if not resp:
+            return
 
         status = resp["status"]
         meta = resp["meta"]
