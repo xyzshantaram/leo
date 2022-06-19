@@ -112,14 +112,37 @@ class Browser:
             response_body = fp_doc.read()
             if response_body:
                 decoded = False
-                try:
-                    response_body = response_body.decode(charset)
-                    response_body = response_body.split("\n")
-                    decoded = True
-                except UnicodeDecodeError:
-                    pass
+                image_extensions = ('png', 'webp', 'jpeg', 'jpg', 'gif')
+                detected_ext = ''
+                for ext in image_extensions:
+                    if url.endswith('.' + ext):
+                        detected_ext = ext
+                        is_image = True
+                        break
+                if not is_image:
+                    try:
+                        response_body = response_body.decode(charset)
+                        response_body = response_body.split("\n")
+                        decoded = True
+                    except UnicodeDecodeError:
+                        log_info("Unable to decode", url)
+                else:
+                    # save image to be shown
+                    image_filename = '.leo_temp_image.' + detected_ext
+                    with open(image_filename, 'wb') as fp_image:
+                        fp_image.write(response_body)
+                    # show image if a command is available
+                    if os.path.isfile('/usr/bin/timg'):
+                        os.system('timg ' + image_filename)
+                    elif os.path.isfile('/usr/bin/catimg'):
+                        os.system('catimg ' + image_filename)
+                    # remove image after display
+                    if os.path.isfile(image_filename):
+                        try:
+                            os.remove(image_filename)
+                        except BaseException:
+                            pass
                 if not decoded:
-                    log_info("Unable to decode", url)
                     return {}
             fp_doc.close()
         return {
