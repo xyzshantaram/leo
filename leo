@@ -486,7 +486,8 @@ def get_link_from_line(line: str, browser: Browser) -> {}:
     validated = \
         validate_url(link_parts[0], browser.current_host, browser.current_url)
     if validated["scheme"] != "gemini":
-        scheme = f'{hlt["error_color"]}{hlt["bold"]} [{validated["scheme"]}]{hlt["reset"]}'
+        scheme = f'{hlt["error_color"]}{hlt["bold"]} ' + \
+            f'[{validated["scheme"]}]{hlt["reset"]}'
         scheme = "%s%s [%s]%s" % (hlt["error_color"], hlt["bold"],
                                   validated["scheme"], hlt["reset"])
     return {
