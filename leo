@@ -841,7 +841,7 @@ if __name__ == "__main__":
         elif _type == 1: # number
             try:
                 url = get_number_url(url, browser)
-            except:
+            except BaseException:
                 url = None
         elif _type == 2: # command
             split_list = url.split(" ")
