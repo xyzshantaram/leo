@@ -254,6 +254,7 @@ class Browser:
         if (self.wrap_text and self.wrap_width):
             cols = min(cols, self.wrap_width)
         screenfuls = slice_line(lines, rows - 1)
+        cmd_found = False
         for count, screenful in enumerate(screenfuls):
             for idx, line in enumerate(screenful):
                 if (count >= 1 and idx == 0):
@@ -268,7 +269,7 @@ class Browser:
             else:
                 try:
                     cmd = get_user_input(f"{hlt['bold']}{hlt['unfocus_color']}Enter to continue reading, Ctrl-C to stop, or (URL/Num): {hlt['reset']}")
-                except:
+                except BaseException:
                     print(f'\r{" " * cols}\r', end='')
                     break
                 if cmd == "":
@@ -279,7 +280,7 @@ class Browser:
                         if _type == 1:
                             try:
                                 cmd = get_number_url(cmd, self)
-                            except:
+                            except BaseException:
                                 continue
                         cmd = validate_url(cmd, self.current_host,
                                            self.current_url, True)
@@ -305,6 +306,8 @@ class Browser:
                         input('Press Enter to continue...')
 
                 print(f'\033[1A\r{" " * cols}\r', end='')
+            if cmd_found:
+                break
 
     def _render(self, file: []) -> None:
         lines = self._get_render_body(file)
@@ -609,7 +612,7 @@ def saveurl(args: [], browser: Browser) -> None:
         print_formatted(f"You entered a number for the filename. Are you sure you want to save under the name '{path}'?", ' ')
         try:
             inp = input("(y / n) ").lower().strip()
-        except:
+        except BaseException:
             return
         if inp == "y":
             pass
@@ -625,7 +628,7 @@ def saveurl(args: [], browser: Browser) -> None:
             try:
                 _url = get_number_url(arg, browser)
                 lines.append(_url)
-            except:
+            except BaseException:
                 log_error(f"Invalid link number specified: {arg}")
     try:
         can_write(path)
@@ -657,7 +660,7 @@ def saveurl(args: [], browser: Browser) -> None:
         try:
             fp_save.writelines(map(lambda a: a + "\n", lines))
             log_info("Saved files successfully.")
-        except:
+        except OSError:
             log_error("Could not save files.")
 
 
@@ -686,7 +689,7 @@ def load_default_config() -> {}:
                       encoding='utf-8') as fp_conf:
                 _config = json.loads(fp_conf.read())
                 return _config
-        except:
+        except OSError:
             log_error(f"Error reading config from {config_file_loc}")
             quit(None, None)
     return None
