@@ -246,6 +246,13 @@ class Browser:
                         f"  “{quote}”{hlt['reset']}"
                     final.append(line)
                     appended = True
+            if (line.startswith("    ") and not line.startswith("     ")) or \
+               (line.startswith("  ") and not line.startswith("   ")):
+                # indented
+                if not in_pf_block:
+                    line = f"{hlt['bold']}{line}{hlt['reset']}"
+                    final.append(line)
+                    appended = True
             if in_pf_block:
                 if not is_toggle_line(line):
                     if len(line) > cols:
