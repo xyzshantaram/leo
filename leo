@@ -331,7 +331,8 @@ class Browser:
 
         if status.startswith("1"):
             log_info("Server at", self.current_host, "requested input")
-            _url = url if url[-1] != '/' else url[:len(url) - 1] # remove trailing /
+            # remove trailing /
+            _url = url if url[-1] != '/' else url[:len(url) - 1]
             result = _url + "?" + get_1x_input(status, meta)
             self.navigate(result)
 
@@ -358,16 +359,19 @@ class Browser:
             rurl = validate_url(meta, self.current_host, self.current_url)
 
             if (not rurl) or rurl["scheme"] != "gemini":
-                log_info("Site attempted to redirect us to a non-gemini protocol. Stopping.")
+                log_info("Site attempted to redirect us to a " +
+                         "non-gemini protocol. Stopping.")
                 return
-            else:
-                self.navigate(rurl["final"])
+            self.navigate(rurl["final"])
 
         elif status.startswith("4") or status.startswith("5"):
-            log_error("Server returned code 4x/5x (TEMPORARY/PERMANENT FAILURE), info:", meta)
+            log_error("Server returned code 4x/5x " +
+                      "(TEMPORARY/PERMANENT FAILURE), info:", meta)
 
         elif status.startswith("6"):
-            log_error("Server requires you to be authenticated.\nPlease set a valid cert path in config.json and restart leo.")
+            log_error("Server requires you to be authenticated.\n" +
+                      "Please set a valid cert path in " +
+                      "config.json and restart leo.")
         else:
             log_error("Server returned invalid status code.")
 
@@ -422,7 +426,8 @@ def set_term_title(s: str) -> None:
     print(hlt["set_title"]%s, end='')
 
 
-def validate_url(url: str, host: str, current: str, internal: bool = False) -> {}:
+def validate_url(url: str, host: str, current: str,
+                 internal: bool = False) -> {}:
     if internal:
         if re.match(r'^\w*$', url):
             return None
@@ -472,15 +477,16 @@ def get_link_from_line(line: str, browser: Browser) -> {}:
             link_parts.append(link_parts[0])
     _text = "".join(link_parts[1:])
     scheme = ""
-    validated = validate_url(link_parts[0], browser.current_host, browser.current_url)
+    validated = \
+        validate_url(link_parts[0], browser.current_host, browser.current_url)
     if validated["scheme"] != "gemini":
         scheme = f'{hlt["error_color"]}{hlt["bold"]} [{validated["scheme"]}]{hlt["reset"]}'
-        scheme = "%s%s [%s]%s" % (hlt["error_color"], hlt["bold"], validated["scheme"], hlt["reset"])
+        scheme = "%s%s [%s]%s" % (hlt["error_color"], hlt["bold"],
+                                  validated["scheme"], hlt["reset"])
     return {
         "url": validated["final"],
         "text": _text,
-         # print links in bold, underlined.
-         "render_line": "%s%s%s%d%s%s %s" % (hlt["bold"], hlt["underline"], hlt["link_color"], len(browser.current_links), hlt["reset"], scheme, _text)
+        "render_line": "%s%s%s%d%s%s %s" % (hlt["bold"], hlt["underline"], hlt["link_color"], len(browser.current_links), hlt["reset"], scheme, _text)
     }
 
 
@@ -519,7 +525,8 @@ def fmt(line: str, width: int) -> []:
 def print_formatted(text_str: str, end: str = '\n') -> None:
     cols, _ = os.get_terminal_size()
     msg = fmt(text_str, cols - 4)
-    final = "\n".join(msg) # +1 for \n and +1 to get to the end of the string
+    # +1 for \n and +1 to get to the end of the string
+    final = "\n".join(msg)
     print(final, end=end)
 
 
@@ -552,12 +559,15 @@ def quit_app(args: [], browser: Browser) -> None:
 def print_help(args: [], browser: Browser) -> None:
     # pylint: disable=unused-argument
     print(hlt["info_color"], hlt['bold'], "*** Commands ***", hlt["reset"], sep='')
-    longest = len(sorted(command_impls.keys(), key=lambda a:len(a), reverse=True)[0])
+    longest = \
+        len(sorted(command_impls.keys(),
+                   key=lambda a: len(a), reverse=True)[0])
     indent = '    '
     for (key, val) in command_impls.items():
-        if ("help" in val):
+        if "help" in val:
             padded = key.ljust(longest, ' ')
-            print_formatted(f"{indent}{hlt['bold']}{padded}{hlt['reset']}:  {val['help']}", '\n')
+            print_formatted(f"{indent}{hlt['bold']}{padded}{hlt['reset']}:  " +
+                            f"{val['help']}", '\n')
 
 
 def get_input_type(url: str) -> int:
@@ -567,9 +577,10 @@ def get_input_type(url: str) -> int:
             if cmd == split_list[0]:
                 return 2
     if re.match(r'\d+', url.strip()):
-        return 1 # this is a link number
-    else:
-        return 0 # this is a url
+        # this is a link number
+        return 1
+    # this is a url
+    return 0
 
 
 def get_number_url(n, browser: Browser, internal: bool = False) -> str:
@@ -614,7 +625,9 @@ def saveurl(args: [], browser: Browser) -> None:
     mode = "w"
     path = args[1].strip()
     if re.match(r"^\d+$", path):
-        print_formatted(f"You entered a number for the filename. Are you sure you want to save under the name '{path}'?", ' ')
+        print_formatted("You entered a number for the filename. " +
+                        "Are you sure you want to save under the " +
+                        f"name '{path}'?", ' ')
         try:
             inp = input("(y / n) ").lower().strip()
         except BaseException:
@@ -626,9 +639,12 @@ def saveurl(args: [], browser: Browser) -> None:
 
     args = args[2:]
     lines = []
-    if args == []: # no numbers specified
-            lines.append(browser.current_url) # write the current url
-    else: # numbers specified
+    # no numbers specified
+    if args == []:
+        # write the current url
+        lines.append(browser.current_url)
+    else:
+        # numbers specified
         for arg in args:
             try:
                 _url = get_number_url(arg, browser)
@@ -641,14 +657,16 @@ def saveurl(args: [], browser: Browser) -> None:
         log_error("Filename was empty.")
         return
     except FileExistsError:
+        # prompt
         inp = input(hlt["bold"] +
                     "File exists. (O)verwrite/ (A)ppend / (C)ancel " +
-                    hlt["reset"]) # prompt
+                    hlt["reset"])
         inp = inp.lower().strip()
         modes = {"o": "w", "a": "a"}
         if inp in modes:
             mode = modes[inp]
-        else: # any other input mode
+        else:
+            # any other input mode
             log_info("Cancelled.")
             return
     except IsADirectoryError:
@@ -704,7 +722,8 @@ def get_config_path(silent: bool = True) -> str:
     xdg_dir = os.getenv("XDG_CONFIG_HOME")
     if not xdg_dir:
         if not silent:
-            log_info("XDG_CONFIG_HOME not found: falling back to ~/.config/leo")
+            log_info("XDG_CONFIG_HOME not found: falling " +
+                     "back to ~/.config/leo")
         home = os.getenv("HOME")
         cfg_location = os.path.join(home, ".config/", "leo")
     else:
@@ -715,7 +734,8 @@ def get_config_path(silent: bool = True) -> str:
 def create_config(cfg: {}) -> None:
     cfg_location = get_config_path(False)
     try:
-        Path(cfg_location).mkdir(parents=True, exist_ok=True) # create path if it doesn't exist.
+        # create path if it doesn't exist.
+        Path(cfg_location).mkdir(parents=True, exist_ok=True)
         with open(os.path.join(cfg_location, "config.json"), "w",
                   encoding='utf-8') as fp_conf:
             fp_conf.write(json.dumps(cfg, sort_keys=True, indent=4))
@@ -737,8 +757,8 @@ def handle_args(args) -> None:
 
 
 if __name__ == "__main__":
-    url = ""
-    old_url = ""
+    URL = ""
+    OLD_URL = ""
 
     parser = \
         argparse.ArgumentParser(prog='leo',
@@ -759,7 +779,7 @@ if __name__ == "__main__":
     handle_args(args)
 
     config = DEFAULT_CONFIG
-    defaults = False
+    DEFAULTS = False
 
     _config = load_default_config()
     if _config:
@@ -771,11 +791,12 @@ if __name__ == "__main__":
                 log_info(f"Loaded config from {args.config}")
     else:
         if _config:
-            config_file_location = os.path.join(get_config_path(), "config.json")
+            config_file_location = \
+                os.path.join(get_config_path(), "config.json")
             log_info(f"Loaded config from {config_file_location}")
         else:
             log_error("Config not found: falling back to defaults.")
-            defaults = True
+            DEFAULTS = True
 
     browser = Browser(config)
 
@@ -813,60 +834,66 @@ if __name__ == "__main__":
         }
     }
 
-    if defaults:
+    if DEFAULTS:
         print_help(None, None)
 
     if "homepage" in config and config["homepage"] != "":
-        url = config["homepage"] # takes precedence over prompting
+        # takes precedence over prompting
+        URL = config["homepage"]
 
     if args.url:
-        url = args.url # always takes precedence over config file
+        # always takes precedence over config file
+        URL = args.url
 
-    first = False
-    if url != "":
-        first = True
+    FIRST = False
+    if URL != "":
+        FIRST = True
 
     while True:
-        old_url = url
+        OLD_URL = URL
         try:
-            if first:
-                first = False
+            if FIRST:
+                FIRST = False
             else:
-                url = get_user_input("(URL/Num): ")
-            if url == "":
+                URL = get_user_input("(URL/Num): ")
+            if URL == "":
                 continue
         except EOFError:
             quit_app(None, None)
         except ValueError:
             continue
-        _type = get_input_type(url)
-        if _type == 0: # text url
-            _url = validate_url(url, browser.current_host, browser.current_url, True)
-            if _url is not None:
-                url = _url["final"]
+        _TYPE = get_input_type(URL)
+        if _TYPE == 0:
+            # text url
+            _URL = validate_url(URL, browser.current_host,
+                                browser.current_url, True)
+            if _URL is not None:
+                URL = _URL["final"]
             else:
-                url = None
-        elif _type == 1: # number
+                URL = None
+        elif _TYPE == 1:
+            # number
             try:
-                url = get_number_url(url, browser)
+                URL = get_number_url(URL, browser)
             except BaseException:
-                url = None
-        elif _type == 2: # command
-            split_list = url.split(" ")
-            cmd_found = False
-            for cmds, _ in command_impls.items():
-                command_str = cmds.split('|')
-                for cmd in command_str:
-                    if cmd == split_list[0]:
-                        command_impls[cmds]["fn"](split_list, browser)
-                        cmd_found = True
+                URL = None
+        elif _TYPE == 2:
+            # command
+            SPLIT_LIST = URL.split(" ")
+            CMD_FOUND = False
+            for CMDS, _ in command_impls.items():
+                COMMAND_STR = CMDS.split('|')
+                for CMD in COMMAND_STR:
+                    if CMD == SPLIT_LIST[0]:
+                        command_impls[CMDS]["fn"](SPLIT_LIST, browser)
+                        CMD_FOUND = True
                         break
-                if cmd_found:
+                if CMD_FOUND:
                     break
-            if not cmd_found:
-                log_error("Command not found: ", cmd)
+            if not CMD_FOUND:
+                log_error("Command not found")
 
-        if _type in (0, 1) and url is not None:
-            browser.navigate(url)
-        elif _type == 0 and url is None:
+        if _TYPE in (0, 1) and URL is not None:
+            browser.navigate(URL)
+        elif _TYPE == 0 and URL is None:
             log_error("Invalid url specifed.")
