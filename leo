@@ -303,7 +303,8 @@ class Browser:
                                     break
                             if cmd_found:
                                 break
-                        input('Press Enter to continue...')
+                        if not cmd_found:
+                            input('Press Enter to continue...')
 
                 print(f'\033[1A\r{" " * cols}\r', end='')
             if cmd_found:
