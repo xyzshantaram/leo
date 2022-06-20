@@ -207,7 +207,10 @@ class Browser:
         if (self.wrap_text and self.wrap_width):
             cols = min(cols, self.wrap_width)
         final = []
-        is_toggle_line = lambda _line: _line.startswith(hlt["italic"] + hlt["unfocus_color"] + "```") or _line.startswith("```")
+        is_toggle_line = \
+            lambda _line: _line.startswith(hlt["italic"] +
+                                           hlt["unfocus_color"] +
+                                           "```") or _line.startswith("```")
         in_pf_block = False
         for line in file:
             appended = False
@@ -220,7 +223,8 @@ class Browser:
             if line.startswith("#"):
                 if not in_pf_block:
                     line = \
-                        f"{hlt['bold']}{hlt['header_color']}{line}{hlt['reset']}"
+                        f"{hlt['bold']}{hlt['header_color']}" + \
+                        f"{line}{hlt['reset']}"
                     final += fmt(line, cols)
                     appended = True
             if line.startswith("=>"):
@@ -240,7 +244,8 @@ class Browser:
                     if len(line) > cols:
                         sliced = slice_line(line, cols - 1)
                         if sliced:
-                            line = f'{sliced[0]}{hlt["error_color"]}{hlt["bold"]}>{hlt["reset"]}'
+                            line = f'{sliced[0]}{hlt["error_color"]}' + \
+                                f'{hlt["bold"]}>{hlt["reset"]}'
                     else:
                         pass
                     final.append(line)
@@ -268,7 +273,9 @@ class Browser:
             if (count + 1) == len(screenfuls):
                 continue
             try:
-                cmd = get_user_input(f"{hlt['bold']}{hlt['unfocus_color']}Enter to continue reading, Ctrl-C to stop, or (URL/Num): {hlt['reset']}")
+                cmd = get_user_input(f"{hlt['bold']}{hlt['unfocus_color']}" +
+                                     "Enter to continue reading, Ctrl-C " +
+                                     f"to stop, or (URL/Num): {hlt['reset']}")
             except BaseException:
                 print(f'\r{" " * cols}\r', end='')
                 break
@@ -531,7 +538,9 @@ def print_formatted(text_str: str, end: str = '\n') -> None:
 
 def get_1x_input(status: str, meta: str) -> str:
     prompt = meta
-    sensitive = True if status[1] == "1" else False
+    sensitive = False
+    if status[1] == "1":
+        sensitive = True
     if sensitive:
         inp = getpass.getpass(prompt + "> ")
     else:
