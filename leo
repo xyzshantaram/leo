@@ -10,6 +10,7 @@ import pprint
 import re
 import socket
 import ssl
+import sys
 import typing
 import urllib.parse
 
@@ -542,10 +543,10 @@ def get_user_input(prompt: str) -> str:
     return retval
 
 
-def quit(args: [], browser: Browser) -> None:
+def quit_app(args: [], browser: Browser) -> None:
     # pylint: disable=unused-argument
     print("\n", hlt["bold"], hlt["info_color"], "Exiting...", hlt["reset"], sep='')
-    exit(0)
+    sys.exit(0)
 
 
 def print_help(args: [], browser: Browser) -> None:
@@ -695,7 +696,7 @@ def load_default_config() -> {}:
                 return _config
         except OSError:
             log_error(f"Error reading config from {config_file_loc}")
-            quit(None, None)
+            quit_app(None, None)
     return None
 
 
@@ -719,20 +720,20 @@ def create_config(cfg: {}) -> None:
                   encoding='utf-8') as fp_conf:
             fp_conf.write(json.dumps(cfg, sort_keys=True, indent=4))
         log_info(f"Stored config in {cfg_location}.")
-        quit(None, None)
+        quit_app(None, None)
     except PermissionError:
         log_error(f"Could not write config to {cfg_location}: permission denied")
-        quit(None, None)
+        quit_app(None, None)
 
 
 def handle_args(args) -> None:
     if args.copy_config:
         create_config(DEFAULT_CONFIG)
-        quit(None, None)
+        quit_app(None, None)
 
     if args.print_config:
         print(json.dumps(DEFAULT_CONFIG, indent=4, sort_keys=True))
-        exit(0)
+        sys.exit(0)
 
 
 if __name__ == "__main__":
@@ -780,7 +781,7 @@ if __name__ == "__main__":
 
     command_impls = {
         "exit|quit|q": {
-            "fn": quit,
+            "fn": quit_app,
             "help": "Exits leo."
         },
         "reload|r": {
@@ -835,7 +836,7 @@ if __name__ == "__main__":
             if url == "":
                 continue
         except EOFError:
-            quit(None, None)
+            quit_app(None, None)
         except ValueError:
             continue
         _type = get_input_type(url)
@@ -865,7 +866,7 @@ if __name__ == "__main__":
             if not cmd_found:
                 log_error("Command not found: ", cmd)
 
-        if (_type == 0 or _type == 1) and url is not None:
+        if _type in (0, 1) and url is not None:
             browser.navigate(url)
         elif _type == 0 and url is None:
             log_error("Invalid url specifed.")
