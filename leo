@@ -35,6 +35,7 @@ hlt = {
     "error_color": "\033[38;5;1m",
     "info_color": "\033[38;5;3m",
     "header_color": "\033[38;5;119m",
+    "quote_color": "\033[0;36m",
     "link_color": "\033[38;5;13m",
     "unfocus_color": "\033[38;5;8m",
     "set_title": "\033]0;%s\a",
@@ -221,6 +222,7 @@ class Browser:
                 final += fmt(line, cols)
                 appended = True
             if line.startswith("#"):
+                # heading
                 if not in_pf_block:
                     line = \
                         f"{hlt['bold']}{hlt['header_color']}" + \
@@ -228,6 +230,7 @@ class Browser:
                     final += fmt(line, cols)
                     appended = True
             if line.startswith("=>"):
+                # link
                 if not in_pf_block:
                     link = get_link_from_line(line, self)
                     self.current_links.append(link)
@@ -235,8 +238,12 @@ class Browser:
                     final += fmt(line, cols)
                     appended = True
             if line.startswith(">"):
+                # quote
                 if not in_pf_block:
-                    line = "|" + line[1:]
+                    quote = line[1:].strip()
+                    line = \
+                        f"{hlt['italic']}{hlt['bold']}{hlt['quote_color']}" + \
+                        f"  “{quote}”{hlt['reset']}"
                     final.append(line)
                     appended = True
             if in_pf_block:
