@@ -575,16 +575,17 @@ def get_number_url(n, browser: Browser, internal: bool = False) -> str:
     try:
         link = browser.current_links[int(n)]
         _url = link["url"]
-        if urllib.parse.urlparse(_url).scheme != "gemini":
+        scheme_str = urllib.parse.urlparse(_url).scheme
+        if scheme_str != "gemini":
             if not internal:
-                log_info("Sorry, leo does not support that scheme yet.")
+                log_info(f"Sorry, leo does not support {scheme_str} yet.")
                 raise ValueError
-            else:
-                return _url
-        else:
             return _url
-    except (IndexError, ValueError):
+        return _url
+    except IndexError:
         log_error("invalid link number specified:", str(n))
+        raise IndexError
+    except ValueError:
         raise ValueError
 
 
