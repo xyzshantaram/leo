@@ -578,7 +578,9 @@ def get_number_url(n, browser: Browser, internal: bool = False) -> str:
         scheme_str = urllib.parse.urlparse(_url).scheme
         if scheme_str != "gemini":
             if not internal:
-                log_info(f"Sorry, leo does not support {scheme_str} yet.")
+                log_info(f"Sorry, leo does not support {scheme_str} " +
+                         f"yet.\n{hlt['error_color']}{hlt['bold']}" +
+                         f"{_url}{hlt['reset']}")
                 raise ValueError
             return _url
         return _url
