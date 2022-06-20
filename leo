@@ -267,47 +267,46 @@ class Browser:
                     print(line)
             if (count + 1) == len(screenfuls):
                 continue
+            try:
+                cmd = get_user_input(f"{hlt['bold']}{hlt['unfocus_color']}Enter to continue reading, Ctrl-C to stop, or (URL/Num): {hlt['reset']}")
+            except BaseException:
+                print(f'\r{" " * cols}\r', end='')
+                break
+            if cmd == "":
+                pass
             else:
-                try:
-                    cmd = get_user_input(f"{hlt['bold']}{hlt['unfocus_color']}Enter to continue reading, Ctrl-C to stop, or (URL/Num): {hlt['reset']}")
-                except BaseException:
-                    print(f'\r{" " * cols}\r', end='')
-                    break
-                if cmd == "":
-                    pass
-                else:
-                    _type = get_input_type(cmd)
-                    if _type == 0 or _type == 1:
-                        if _type == 1:
-                            try:
-                                cmd = get_number_url(cmd, self)
-                            except BaseException:
-                                continue
-                        cmd = validate_url(cmd, self.current_host,
-                                           self.current_url, True)
+                _type = get_input_type(cmd)
+                if _type in (0, 1):
+                    if _type == 1:
                         try:
-                            self.navigate(cmd["final"])
-                            break
-                        except TypeError:
-                            log_error("Invalid command specified.")
-                            input('Press Enter to continue...')
-                    else:
-                        split_list = cmd.split()
-                        cmd_found = False
-                        for cmds, _ in command_impls.items():
-                            command_str = cmds.split('|')
-                            for cmd2 in command_str:
-                                if cmd2 == split_list[0]:
-                                    command_impls[cmds]["fn"](split_list,
-                                                              browser)
-                                    cmd_found = True
-                                    break
-                            if cmd_found:
+                            cmd = get_number_url(cmd, self)
+                        except BaseException:
+                            continue
+                    cmd = validate_url(cmd, self.current_host,
+                                       self.current_url, True)
+                    try:
+                        self.navigate(cmd["final"])
+                        break
+                    except TypeError:
+                        log_error("Invalid command specified.")
+                        input('Press Enter to continue...')
+                else:
+                    split_list = cmd.split()
+                    cmd_found = False
+                    for cmds, _ in command_impls.items():
+                        command_str = cmds.split('|')
+                        for cmd2 in command_str:
+                            if cmd2 == split_list[0]:
+                                command_impls[cmds]["fn"](split_list,
+                                                          browser)
+                                cmd_found = True
                                 break
-                        if not cmd_found:
-                            input('Press Enter to continue...')
+                        if cmd_found:
+                            break
+                    if not cmd_found:
+                        input('Press Enter to continue...')
 
-                print(f'\033[1A\r{" " * cols}\r', end='')
+            print(f'\033[1A\r{" " * cols}\r', end='')
             if cmd_found:
                 break
 
@@ -552,13 +551,15 @@ def get_user_input(prompt: str) -> str:
 
 def quit_app(args: [], browser: Browser) -> None:
     # pylint: disable=unused-argument
-    print("\n", hlt["bold"], hlt["info_color"], "Exiting...", hlt["reset"], sep='')
+    print("\n", hlt["bold"], hlt["info_color"], "Exiting...",
+          hlt["reset"], sep='')
     sys.exit(0)
 
 
 def print_help(args: [], browser: Browser) -> None:
     # pylint: disable=unused-argument
-    print(hlt["info_color"], hlt['bold'], "*** Commands ***", hlt["reset"], sep='')
+    print(hlt["info_color"], hlt['bold'], "*** Commands ***",
+          hlt["reset"], sep='')
     longest = \
         len(sorted(command_impls.keys(),
                    key=lambda a: len(a), reverse=True)[0])
