@@ -44,6 +44,7 @@ hlt = {
 
 hlt_vals = list(hlt.values())
 
+
 class Browser:
     def __init__(self, config: {}):
         self.current_host = ""
@@ -159,9 +160,9 @@ class Browser:
                     if url.endswith('.torrent'):
                         detected_torrent_ext = 'torrent'
                 if not detected_image_ext and \
-                   not detected_media_ext and \
-                   not detected_archive_ext and \
-                   not detected_torrent_ext:
+                        not detected_media_ext and \
+                        not detected_archive_ext and \
+                        not detected_torrent_ext:
                     try:
                         response_body = response_body.decode(charset)
                         response_body = response_body.split("\n")
@@ -274,10 +275,10 @@ class Browser:
                 if not in_pf_block:
                     quote = line[1:].strip()
                     if not quote.startswith('-') and \
-                       not quote.startswith('—') and \
-                       not quote.startswith('→'):
+                            not quote.startswith('—') and \
+                            not quote.startswith('→'):
                         if not quote.startswith("'") and \
-                           not quote.startswith('"'):
+                                not quote.startswith('"'):
                             quote = f"“{quote}”"
                     else:
                         quote = f"\n    {quote}"
@@ -287,7 +288,7 @@ class Browser:
                     final += fmt(line, cols)
                     appended = True
             if (line.startswith("    ") and not line.startswith("     ")) or \
-               (line.startswith("  ") and not line.startswith("   ")):
+                    (line.startswith("  ") and not line.startswith("   ")):
                 # indented
                 if not in_pf_block:
                     line = f"{hlt['bold']}{line}{hlt['reset']}"
@@ -299,7 +300,7 @@ class Browser:
                         sliced = slice_line(line, cols - 1)
                         if sliced:
                             line = f'{sliced[0]}{hlt["error_color"]}' + \
-                                f'{hlt["bold"]}>{hlt["reset"]}'
+                                   f'{hlt["bold"]}>{hlt["reset"]}'
                     else:
                         pass
                     final.append(line)
@@ -489,7 +490,7 @@ def log_debug(*argv) -> None:
 
 
 def set_term_title(s: str) -> None:
-    print(hlt["set_title"]%s, end='')
+    print(hlt["set_title"] % s, end='')
 
 
 def validate_url(url: str, host: str, current: str,
@@ -547,13 +548,14 @@ def get_link_from_line(line: str, browser: Browser) -> {}:
         validate_url(link_parts[0], browser.current_host, browser.current_url)
     if validated["scheme"] != "gemini":
         scheme = f'{hlt["error_color"]}{hlt["bold"]} ' + \
-            f'[{validated["scheme"]}]{hlt["reset"]}'
+                 f'[{validated["scheme"]}]{hlt["reset"]}'
         scheme = "%s%s [%s]%s" % (hlt["error_color"], hlt["bold"],
                                   validated["scheme"], hlt["reset"])
     return {
         "url": validated["final"],
         "text": _text,
-        "render_line": "%s%s%s%d%s%s %s" % (hlt["bold"], hlt["underline"], hlt["link_color"], len(browser.current_links), hlt["reset"], scheme, _text)
+        "render_line": "%s%s%s%d%s%s %s" % (
+        hlt["bold"], hlt["underline"], hlt["link_color"], len(browser.current_links), hlt["reset"], scheme, _text)
     }
 
 
@@ -837,16 +839,16 @@ if __name__ == "__main__":
                                 description="Command-line Gemini browser.")
     parser.add_argument("--url", required=False, type=str,
                         help='Initial URL to navigate to. If left blank ' +
-                        'and no homepage is set, you will be prompted.')
+                             'and no homepage is set, you will be prompted.')
     parser.add_argument("--fetch", required=False, type=str,
                         help='URL to be fetched.')
     parser.add_argument("--config", required=False, type=str,
                         help='Temporary config file location. If left ' +
-                        'blank, leo will load the default config.')
+                             'blank, leo will load the default config.')
     parser.add_argument("--copy-config", required=False, action="store_true",
                         help='Copy the default config file to either ' +
-                        'XDG_CONFIG_HOME (if set) or ~/.config/leo/ ' +
-                        '(Will be created if it does not exist).')
+                             'XDG_CONFIG_HOME (if set) or ~/.config/leo/ ' +
+                             '(Will be created if it does not exist).')
     parser.add_argument("--print-config", required=False, action="store_true",
                         help='Print out the default config.')
     args = parser.parse_args()
@@ -974,7 +976,6 @@ if __name__ == "__main__":
                 log_error("Command not found")
 
         if _TYPE in (0, 1) and URL is not None:
-            browser.navigate(URL)
             browser.navigate(URL, not FETCH)
             # if this is a fetch then exit after the page has downloaded
             if FETCH:
